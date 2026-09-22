@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
-      background: #70c5ff;
+      background: #000;
       overflow: hidden;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
@@ -17,190 +17,278 @@
       display: block;
     }
 
-    /* UI Overlay */
+    /* --- High-Speed Warp Vignette (250 km/h) --- */
+    #screen-warp-vignette {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 5;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0, 229, 255, 0.2) 72%, rgba(255, 23, 68, 0.48) 100%);
+      opacity: 0;
+      transition: opacity 0.18s ease-out;
+    }
+
+    /* --- Comic Crash Impact "💥 쿵!" (Smooth Pop) --- */
+    #crash-popup {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      font-size: 80px;
+      font-weight: 900;
+      color: #fff01f;
+      text-shadow:
+        4px 4px 0 #d50000,
+        -3px -3px 0 #000,
+        3px -3px 0 #000,
+        -3px 3px 0 #000,
+        0 0 35px rgba(255, 30, 0, 0.9);
+      pointer-events: none;
+      z-index: 25;
+      opacity: 0;
+      transition: transform 0.08s cubic-bezier(0.18, 0.89, 0.32, 1.35), opacity 0.15s;
+      letter-spacing: 3px;
+    }
+    #crash-popup.active {
+      transform: translate(-50%, -50%) scale(1.15);
+      opacity: 1;
+    }
+
+    /* --- CLEAN UNIFIED HUD (Non-Overlapping, Zero-Clutter) --- */
     #ui-layer {
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none;
       font-weight: 800;
       color: #fff;
-      text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
       transition: opacity 0.3s;
-    }
-    .hud-box {
-      position: absolute;
-      background: rgba(0, 0, 0, 0.55);
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: 3px solid #ffcc00;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-    }
-    #hud-pos { top: 20px; left: 20px; font-size: 34px; color: #ffeb3b; }
-    #hud-lap { top: 20px; right: 20px; font-size: 26px; }
-    #hud-time { top: 80px; right: 20px; font-size: 22px; color: #00e5ff; }
-    #hud-audio {
-      top: 80px; left: 20px;
-      font-size: 14px;
-      padding: 6px 12px;
-      color: #ddd;
+      z-index: 10;
     }
 
-    /* Speedometer (up to 250 km/h) */
-    #hud-speed-box {
-      bottom: 25px; left: 20px;
+    /* Top Bar: Minimalist Sleek Ribbon */
+    #hud-top-bar {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Rank Badge (Top Left) */
+    #hud-rank-card {
+      display: flex;
+      align-items: baseline;
+      background: rgba(10, 15, 25, 0.78);
+      backdrop-filter: blur(8px);
+      border: 2px solid #ffd700;
+      border-radius: 14px;
+      padding: 6px 18px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5), 0 0 12px rgba(255, 215, 0, 0.35);
+    }
+    #hud-pos-num {
+      font-size: 38px;
+      font-weight: 900;
+      color: #ffeb3b;
+      text-shadow: 2px 2px 0 #d50000;
+      line-height: 1;
+    }
+    #hud-pos-suffix {
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+      margin-left: 3px;
+    }
+
+    /* Center Pill: Lap & Time (Top Center) */
+    #hud-center-pill {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(10, 15, 25, 0.78);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-radius: 25px;
+      padding: 8px 24px;
+      font-size: 19px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .hud-lap-text { color: #fff; }
+    .hud-lap-text b { color: #00e5ff; font-size: 22px; }
+    .hud-divider { color: rgba(255, 255, 255, 0.3); }
+    .hud-time-text { color: #76ff03; font-family: monospace; font-size: 21px; }
+
+    /* Audio Toggle Button (Top Right) */
+    #hud-audio-btn {
+      background: rgba(10, 15, 25, 0.78);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 14px;
+      color: #ddd;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.15s;
+    }
+    #hud-audio-btn:hover {
+      background: rgba(30, 45, 75, 0.9);
+      border-color: #00e5ff;
+      color: #fff;
+    }
+
+    /* Bottom-Left Unified Cockpit (All Vehicle Info in One Clean Card) */
+    #hud-cockpit {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      min-width: 190px;
+      gap: 7px;
+      background: rgba(8, 14, 25, 0.84);
+      backdrop-filter: blur(10px);
+      border: 2px solid #00e5ff;
+      border-radius: 18px;
+      padding: 12px 18px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6), 0 0 15px rgba(0, 229, 255, 0.25);
+      min-width: 245px;
     }
-    #hud-speed {
-      font-size: 24px;
+    .cockpit-speed-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .speed-val-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    #hud-speed-val {
+      font-size: 34px;
+      font-weight: 900;
       color: #76ff03;
-      transition: color 0.1s;
+      line-height: 1;
     }
-    #speed-bar-bg {
-      width: 100%;
-      height: 12px;
-      background: rgba(255, 255, 255, 0.2);
+    .speed-kmh-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: #8be9fd;
+    }
+    #cockpit-state-badge {
+      font-size: 11px;
+      font-weight: 900;
+      padding: 2px 7px;
       border-radius: 6px;
+      background: rgba(255,255,255,0.1);
+      color: #aaa;
+    }
+    #cockpit-state-badge.boost {
+      background: #ff1744;
+      color: #fff;
+      box-shadow: 0 0 8px #ff1744;
+    }
+    #cockpit-state-badge.turbo {
+      background: #00e5ff;
+      color: #000;
+      box-shadow: 0 0 8px #00e5ff;
+    }
+
+    /* Speed Bar */
+    #speed-bar-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
       overflow: hidden;
-      border: 1px solid rgba(0,0,0,0.6);
     }
     #speed-bar-fill {
       width: 0%;
       height: 100%;
-      background: linear-gradient(90deg, #76ff03, #ffeb3b 50%, #ff1744 80%, #ff0055 100%);
-      transition: width 0.05s linear;
+      background: linear-gradient(90deg, #76ff03, #ffeb3b 50%, #ff1744 80%, #d500f9 100%);
+      transition: width 0.04s linear;
     }
 
-    /* KartRider Nitro Booster & Drift Gauge UI */
-    #hud-nitro-box {
-      bottom: 100px; left: 20px;
+    /* Booster Slots Row */
+    .cockpit-boosters-row {
       display: flex;
-      flex-direction: column;
       gap: 7px;
-      min-width: 220px;
-      background: rgba(10, 15, 25, 0.75);
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: 2px solid #00e5ff;
-      box-shadow: 0 4px 15px rgba(0, 229, 255, 0.35);
-    }
-    .booster-slots-row {
-      display: flex;
-      gap: 8px;
+      align-items: center;
+      margin-top: 2px;
     }
     .booster-slot {
       flex: 1;
-      height: 32px;
-      background: rgba(20, 25, 40, 0.85);
-      border: 2px solid #445;
-      border-radius: 8px;
+      height: 27px;
+      border-radius: 6px;
+      background: rgba(20, 25, 40, 0.9);
+      border: 1px solid #445;
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 900;
       color: #667;
-      letter-spacing: 1px;
-      transition: all 0.2s ease;
-    }}
+    }
     .booster-slot.ready {
       background: linear-gradient(135deg, #ff1744, #ff9100);
       border-color: #ffea00;
       color: #fff;
-      box-shadow: 0 0 12px rgba(255, 23, 68, 0.8), inset 0 0 6px rgba(255, 234, 0, 0.8);
+      box-shadow: 0 0 10px rgba(255, 23, 68, 0.75);
       animation: slotPulse 0.8s infinite alternate;
     }
     @keyframes slotPulse {
       from { transform: scale(1.0); }
       to { transform: scale(1.04); }
     }
-    .drift-gauge-row {
+
+    /* Drift Gauge Bar */
+    .drift-gauge-wrap {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
     }
-    .gauge-label {
+    .drift-gauge-header {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
+      font-size: 10px;
       color: #8be9fd;
-      letter-spacing: 0.5px;
     }
-    #drift-gauge-bg {
+    #drift-gauge-track {
       width: 100%;
-      height: 9px;
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 5px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 3px;
       overflow: hidden;
-      border: 1px solid rgba(0, 229, 255, 0.4);
     }
     #drift-gauge-fill {
       width: 0%;
       height: 100%;
       background: linear-gradient(90deg, #00e5ff, #ffea00, #ff1744);
-      transition: width 0.05s linear;
-    }
-    #mini-turbo-alert {
-      font-size: 12px;
-      text-align: center;
-      color: #ffea00;
-      min-height: 16px;
-      font-weight: 900;
+      transition: width 0.04s linear;
     }
 
-    /* Minimap */
+    #cockpit-hint-text {
+      font-size: 10px;
+      text-align: center;
+      color: #8899aa;
+      margin-top: 2px;
+    }
+
+    /* Minimap (Bottom Right) */
     #minimap-container {
       position: absolute;
-      bottom: 25px; right: 20px;
+      bottom: 20px; right: 20px;
       width: 140px; height: 140px;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(5, 8, 16, 0.75);
+      backdrop-filter: blur(8px);
       border-radius: 50%;
       border: 3px solid #ffcc00;
       overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
     }
     #minimap { width: 100%; height: 100%; }
 
-    /* High-Speed Warp Vignette (250 km/h) */
-    #screen-warp-vignette {
-      position: absolute;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      pointer-events: none;
-      z-index: 5;
-      background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0, 229, 255, 0.22) 72%, rgba(255, 23, 68, 0.52) 100%);
-      opacity: 0;
-      transition: opacity 0.18s ease-out;
-    }
-
-    /* Comic Crash Impact "💥 쿵!" Popup */
-    #crash-popup {
-      position: absolute;
-      top: 40%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0);
-      font-size: 88px;
-      font-weight: 900;
-      color: #fff01f;
-      text-shadow:
-        5px 5px 0 #d50000,
-        -4px -4px 0 #000,
-        4px -4px 0 #000,
-        -4px 4px 0 #000,
-        0 0 40px rgba(255, 30, 0, 0.95);
-      pointer-events: none;
-      z-index: 25;
-      opacity: 0;
-      transition: transform 0.08s cubic-bezier(0.18, 0.89, 0.32, 1.35), opacity 0.15s;
-      letter-spacing: 4px;
-    }
-    #crash-popup.active {
-      transform: translate(-50%, -50%) scale(1.25);
-      opacity: 1;
-    }
-
-    /* Start & Podium Screens */
+    /* --- Start Screen with Theme Selector --- */
     .screen {
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -208,32 +296,103 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(5, 10, 20, 0.82);
+      backdrop-filter: blur(12px);
       z-index: 20;
     }
     .title {
-      font-size: 54px;
+      font-size: 48px;
       color: #ff3333;
-      text-shadow: 4px 4px 0 #ffcc00, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
-      margin-bottom: 12px;
+      text-shadow: 3px 3px 0 #ffcc00, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+      margin-bottom: 6px;
       letter-spacing: 2px;
     }
     .subtitle {
-      font-size: 20px;
-      margin-bottom: 30px;
-      color: #eee;
+      font-size: 18px;
+      margin-bottom: 22px;
+      color: #ccc;
       text-shadow: 2px 2px 4px #000;
     }
+
+    /* Theme Cards Container */
+    .theme-select-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
+      width: 90%;
+      max-width: 820px;
+    }
+    .theme-select-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #00e5ff;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .theme-cards-row {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .theme-card {
+      flex: 1;
+      min-width: 220px;
+      max-width: 255px;
+      background: rgba(20, 28, 48, 0.85);
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .theme-card:hover {
+      transform: translateY(-4px);
+      border-color: #00e5ff;
+      background: rgba(30, 45, 75, 0.95);
+      box-shadow: 0 8px 25px rgba(0, 229, 255, 0.35);
+    }
+    .theme-card.active {
+      border-color: #ffd700;
+      background: linear-gradient(180deg, rgba(255, 215, 0, 0.2), rgba(20, 28, 48, 0.95));
+      box-shadow: 0 0 25px rgba(255, 215, 0, 0.5), inset 0 0 15px rgba(255, 215, 0, 0.2);
+      transform: scale(1.04);
+    }
+    .theme-icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .theme-name {
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .theme-card.active .theme-name {
+      color: #ffeb3b;
+    }
+    .theme-desc {
+      font-size: 12px;
+      color: #aaa;
+      line-height: 1.4;
+    }
+
     .btn {
-      padding: 14px 40px;
-      font-size: 24px;
-      font-weight: bold;
+      padding: 14px 45px;
+      font-size: 22px;
+      font-weight: 900;
       color: #fff;
       background: linear-gradient(180deg, #ff9800, #f57c00);
       border: 3px solid #fff;
       border-radius: 35px;
       cursor: pointer;
-      box-shadow: 0 6px 15px rgba(0,0,0,0.5);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
       transition: transform 0.1s, background 0.2s, opacity 0.2s;
     }
     .btn:hover:not(:disabled) {
@@ -246,15 +405,16 @@
       background: #777;
       border-color: #aaa;
     }
+
     .controls-hint {
-      margin-top: 25px;
-      font-size: 15px;
-      color: #ddd;
+      margin-top: 18px;
+      font-size: 13px;
+      color: #bbb;
       text-align: center;
-      line-height: 1.7;
+      line-height: 1.6;
     }
 
-    /* Podium Results Overlay */
+    /* --- Podium Results Overlay --- */
     #podium-screen {
       position: absolute;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -262,8 +422,8 @@
       flex-direction: column;
       justify-content: flex-end;
       align-items: center;
-      padding-bottom: 38px;
-      background: linear-gradient(180deg, rgba(5, 10, 25, 0) 0%, rgba(5, 10, 25, 0.35) 45%, rgba(5, 10, 25, 0.88) 100%);
+      padding-bottom: 35px;
+      background: linear-gradient(180deg, rgba(5, 10, 25, 0) 0%, rgba(5, 10, 25, 0.4) 45%, rgba(5, 10, 25, 0.9) 100%);
       z-index: 30;
       pointer-events: auto;
     }
@@ -271,12 +431,12 @@
       background: rgba(12, 18, 35, 0.94);
       border: 3px solid #ffd700;
       border-radius: 24px;
-      padding: 22px 34px;
+      padding: 20px 32px;
       display: flex;
       flex-direction: column;
       align-items: center;
       box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 35px rgba(255, 215, 0, 0.45);
-      max-width: 620px;
+      max-width: 600px;
       width: 90%;
       animation: podiumPop 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.25);
     }
@@ -285,11 +445,11 @@
       100% { transform: translateY(0); opacity: 1; }
     }
     .ceremony-title {
-      font-size: 34px;
+      font-size: 32px;
       font-weight: 900;
       color: #ffeb3b;
       text-shadow: 3px 3px 0 #d50000, 0 0 15px rgba(255, 235, 59, 0.7);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       letter-spacing: 2px;
       display: flex;
       align-items: center;
@@ -299,14 +459,14 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 9px;
-      margin-bottom: 18px;
+      gap: 8px;
+      margin-bottom: 16px;
     }
     .standing-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 18px;
+      padding: 9px 16px;
       background: rgba(26, 36, 60, 0.85);
       border-radius: 12px;
       border: 2px solid transparent;
@@ -328,23 +488,9 @@
       box-shadow: 0 0 16px rgba(0, 229, 255, 0.85);
       border-color: #00e5ff !important;
     }
-    .standing-rank {
-      font-size: 22px;
-      font-weight: 900;
-      width: 45px;
-    }
-    .standing-name {
-      font-size: 19px;
-      font-weight: 800;
-      flex: 1;
-      text-align: left;
-      margin-left: 10px;
-    }
-    .standing-time {
-      font-size: 18px;
-      font-weight: 700;
-      color: #00e5ff;
-    }
+    .standing-rank { font-size: 20px; font-weight: 900; width: 45px; }
+    .standing-name { font-size: 18px; font-weight: 800; flex: 1; text-align: left; margin-left: 10px; }
+    .standing-time { font-size: 17px; font-weight: 700; color: #00e5ff; }
 
     /* Countdown Overlay */
     #countdown-overlay {
@@ -393,36 +539,50 @@
   <!-- Comic Crash Impact "💥 쿵!" Popup -->
   <div id="crash-popup">💥 쿵!</div>
 
+  <!-- Non-Overlapping Unified HUD -->
   <div id="ui-layer">
-    <div id="hud-pos" class="hud-box">1st</div>
-    <div id="hud-lap" class="hud-box">LAP 1/3</div>
-    <div id="hud-time" class="hud-box">00:00.00</div>
-    <div id="hud-audio" class="hud-box">Sound: ON [M]</div>
+    <!-- Top Header Bar -->
+    <div id="hud-top-bar">
+      <div id="hud-rank-card">
+        <span id="hud-pos-num">1</span><span id="hud-pos-suffix">st</span>
+      </div>
+      <div id="hud-center-pill">
+        <span class="hud-lap-text">LAP <b id="hud-lap-val">1</b>/3</span>
+        <span class="hud-divider">|</span>
+        <span class="hud-time-text" id="hud-time-val">00:00.00</span>
+      </div>
+      <div id="hud-audio-btn">🔊 사운드 [M]</div>
+    </div>
 
-    <!-- KartRider Nitro Booster & Drift Gauge -->
-    <div id="hud-nitro-box">
-      <div class="booster-slots-row">
+    <!-- Bottom-Left Integrated Cockpit -->
+    <div id="hud-cockpit">
+      <div class="cockpit-speed-row">
+        <div class="speed-val-wrap">
+          <span id="hud-speed-val">0</span>
+          <span class="speed-kmh-label">KM/H</span>
+        </div>
+        <div id="cockpit-state-badge">CRUISE</div>
+      </div>
+      <div id="speed-bar-track">
+        <div id="speed-bar-fill"></div>
+      </div>
+      <div class="cockpit-boosters-row">
         <div id="slot-0" class="booster-slot ready">🚀 N2O</div>
         <div id="slot-1" class="booster-slot">SLOT 2</div>
       </div>
-      <div class="drift-gauge-row">
-        <div class="gauge-label">
+      <div class="drift-gauge-wrap">
+        <div class="drift-gauge-header">
           <span>DRIFT GAUGE</span>
           <span id="drift-gauge-text">0%</span>
         </div>
-        <div id="drift-gauge-bg">
+        <div id="drift-gauge-track">
           <div id="drift-gauge-fill"></div>
         </div>
       </div>
-      <div id="mini-turbo-alert">PRESS [SPACE] FOR BOOSTER!</div>
+      <div id="cockpit-hint-text">[SHIFT] 드리프트 | [SPACE] 250km/h 부스터</div>
     </div>
 
-    <!-- Speedometer (250 km/h) -->
-    <div id="hud-speed-box" class="hud-box">
-      <div id="hud-speed">0 KM/H</div>
-      <div id="speed-bar-bg"><div id="speed-bar-fill"></div></div>
-    </div>
-
+    <!-- Bottom-Right Minimap -->
     <div id="minimap-container">
       <canvas id="minimap" width="140" height="140"></canvas>
     </div>
@@ -432,20 +592,40 @@
     <div id="countdown-text" class="countdown-num">3</div>
   </div>
 
+  <!-- Start Screen with 3 Interactive Track Cards -->
   <div id="start-screen" class="screen">
     <div class="title">MARIO KART 3D</div>
     <div class="subtitle">KartRider Grand Prix Edition</div>
+
+    <div class="theme-select-section">
+      <div class="theme-select-title">🏁 레이싱 트랙 배경 테마를 선택하세요 🏁</div>
+      <div class="theme-cards-row">
+        <div class="theme-card active" data-theme="witch">
+          <div class="theme-icon">🎃</div>
+          <div class="theme-name">마녀 도시</div>
+          <div class="theme-desc">보랏빛 안개와 달빛, 고딕 첨탑과 호박등이 감싸는 신비로운 할로윈 마녀의 밤</div>
+        </div>
+        <div class="theme-card" data-theme="nyc">
+          <div class="theme-icon">🏙️</div>
+          <div class="theme-name">뉴욕 도심</div>
+          <div class="theme-desc">화려한 마천루 빌딩 숲과 창문 불빛, 네온사인이 번쩍이는 한밤의 메트로폴리스</div>
+        </div>
+        <div class="theme-card" data-theme="joseon">
+          <div class="theme-icon">🏯</div>
+          <div class="theme-name">조선시대</div>
+          <div class="theme-desc">노을빛 하늘과 청사초롱, 기와 한옥 누각과 돌담길이 어우러진 고궁 레이스</div>
+        </div>
+      </div>
+    </div>
+
     <button id="start-btn" class="btn" disabled>로딩 중...</button>
     <div class="controls-hint">
-      <strong>[↑] / [W]</strong> 가속 (일반 최고 150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> 감속 / 후진<br>
-      <strong>[←][→] / [A][D]</strong> 핸들 조향 &nbsp;|&nbsp; <strong>[SHIFT]</strong> 카트라이더 드리프트!<br>
-      <span style="color: #ffea00; font-size: 16px; font-weight: 900;">★ [SPACE] / [CTRL] : N2O 부스터 점화 (최고 250 KM/H 돌파!) ★</span><br>
-      <span style="color: #00e5ff; font-size: 13px;">코너에서 드리프트를 길게 유지해 부스터를 충전하세요! 드리프트 탈출 시 순간부스터 발동!</span><br>
-      <span style="color: #ff5252; font-size: 13px;">★ 벽/가드레일 및 다른 카트와 충돌 시 "쿵!" 충격과 함께 감속됩니다! ★</span>
+      <strong>[↑] / [W]</strong> 가속 (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> 감속 / 후진 &nbsp;|&nbsp; <strong>[←][→]</strong> 조향<br>
+      <strong>[SHIFT]</strong> 드리프트 & 순간부스터 (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O 부스터 점화 (250 km/h)
     </div>
   </div>
 
-  <!-- KartRider 3D Podium Ceremony Screen -->
+  <!-- Podium Ceremony Screen -->
   <div id="podium-screen">
     <div class="podium-card">
       <div class="ceremony-title">
@@ -453,9 +633,7 @@
         <span>시상식 & 결과 발표</span>
         <span>🏆</span>
       </div>
-      <div class="standings-list" id="podium-standings">
-        <!-- Generated by JS -->
-      </div>
+      <div class="standings-list" id="podium-standings"></div>
       <button id="podium-restart-btn" class="btn">다시 달리기 (RACE AGAIN)</button>
     </div>
   </div>
@@ -466,6 +644,7 @@
 
     // --- State & Constants ---
     let gameState = 'START'; // 'START', 'COUNTDOWN', 'RACING', 'PODIUM'
+    let currentTheme = 'witch';
     let startTime = 0;
     let finalTimeStr = '';
     const TOTAL_LAPS = 3;
@@ -475,8 +654,6 @@
     const NUM_WAYPOINTS = 100;
     const FORWARD_FIX_Y = 0;
 
-    // Physics Constants
-    // Cruising top speed: 150 km/h, Booster top speed: 250 km/h
     const KMH_PER_UNIT = 216.0;
     const MAX_FORWARD_SPEED_PLAYER = 250.0 / KMH_PER_UNIT;
     const MAX_REVERSE_SPEED = 40.0 / KMH_PER_UNIT;
@@ -490,16 +667,13 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x70c5ff);
-    scene.fog = new THREE.Fog(0x70c5ff, 120, 420);
-
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
     // Lights
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d7030, 0.75);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d7030, 0.7);
     scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff7d6, 1.3);
+    const dirLight = new THREE.DirectionalLight(0xfff7d6, 1.25);
     dirLight.position.set(100, 150, 80);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
@@ -512,7 +686,7 @@
     dirLight.shadow.camera.far = 400;
     scene.add(dirLight);
 
-    // --- Track Waypoints & Shape ---
+    // Track Waypoints
     function getTrackPoint(t) {
       const angle = t * Math.PI * 2;
       return new THREE.Vector3(
@@ -527,13 +701,23 @@
       waypoints.push(getTrackPoint(i / NUM_WAYPOINTS));
     }
 
-    // --- Ground & Track Meshes ---
-    const grassGeo = new THREE.PlaneGeometry(750, 750);
-    const grassMat = new THREE.MeshLambertMaterial({ color: 0x55aa33 });
+    // Ground Mesh
+    const grassGeo = new THREE.PlaneGeometry(800, 800);
+    const grassMat = new THREE.MeshLambertMaterial({ color: 0x221133 });
     const grassMesh = new THREE.Mesh(grassGeo, grassMat);
     grassMesh.rotation.x = -Math.PI / 2;
     grassMesh.receiveShadow = true;
     scene.add(grassMesh);
+
+    // Road & Curbs
+    let roadMesh, cInMesh, cOutMesh;
+    const curbTexture = createStripeTexture();
+    curbTexture.wrapS = THREE.RepeatWrapping;
+    curbTexture.wrapT = THREE.RepeatWrapping;
+    curbTexture.repeat.set(40, 1);
+
+    const roadMat = new THREE.MeshLambertMaterial({ color: 0x261e33 });
+    const curbMat = new THREE.MeshBasicMaterial({ map: curbTexture });
 
     function buildTrackMesh() {
       const roadSegments = 160;
@@ -576,26 +760,18 @@
 
       roadGeom.setAttribute('position', new THREE.Float32BufferAttribute(posRoad, 3));
       roadGeom.computeVertexNormals();
-      const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-      const roadMesh = new THREE.Mesh(roadGeom, roadMat);
+      roadMesh = new THREE.Mesh(roadGeom, roadMat);
       roadMesh.receiveShadow = true;
       scene.add(roadMesh);
 
-      const curbTex = createStripeTexture();
-      curbTex.wrapS = THREE.RepeatWrapping;
-      curbTex.wrapT = THREE.RepeatWrapping;
-      curbTex.repeat.set(40, 1);
-
-      const curbMat = new THREE.MeshBasicMaterial({ map: curbTex });
-
       curbInGeom.setAttribute('position', new THREE.Float32BufferAttribute(posCIn, 3));
       curbInGeom.computeVertexNormals();
-      const cInMesh = new THREE.Mesh(curbInGeom, curbMat);
+      cInMesh = new THREE.Mesh(curbInGeom, curbMat);
       scene.add(cInMesh);
 
       curbOutGeom.setAttribute('position', new THREE.Float32BufferAttribute(posCOut, 3));
       curbOutGeom.computeVertexNormals();
-      const cOutMesh = new THREE.Mesh(curbOutGeom, curbMat);
+      cOutMesh = new THREE.Mesh(curbOutGeom, curbMat);
       scene.add(cOutMesh);
     }
 
@@ -607,13 +783,12 @@
       ctx.fillRect(0, 0, 32, 16);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(32, 0, 32, 16);
-      const tex = new THREE.CanvasTexture(c);
-      return tex;
+      return new THREE.CanvasTexture(c);
     }
 
     buildTrackMesh();
 
-    // --- Finish Line Arch ---
+    // Finish Arch
     function createCheckeredTexture() {
       const c = document.createElement('canvas');
       c.width = 128; c.height = 32;
@@ -640,7 +815,6 @@
     finishLine.position.copy(finishP).add(new THREE.Vector3(0, 0.05, 0));
     scene.add(finishLine);
 
-    // Arch structure
     const archGroup = new THREE.Group();
     const poleGeo = new THREE.CylinderGeometry(0.5, 0.5, 9, 8);
     const poleMat = new THREE.MeshLambertMaterial({ color: 0xcccccc });
@@ -659,43 +833,225 @@
     archGroup.rotation.y = -Math.atan2(finishDir.z, finishDir.x) + Math.PI / 2;
     scene.add(archGroup);
 
-    // --- Environment Trees ---
-    function spawnEnvironmentProps() {
-      const treeGeoCone = new THREE.ConeGeometry(3.5, 7, 5);
-      const treeGeoTrunk = new THREE.CylinderGeometry(0.7, 0.9, 2.5, 5);
-      const leafMat = new THREE.MeshLambertMaterial({ color: 0x2e8b57 });
-      const leafMat2 = new THREE.MeshLambertMaterial({ color: 0x3cb371 });
-      const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+    // --- 3 THEMES ENVIRONMENT GENERATOR ---
+    const environmentGroup = new THREE.Group();
+    scene.add(environmentGroup);
 
-      for (let i = 0; i < 70; i++) {
-        const t = i / 70;
-        const pt = getTrackPoint(t);
-        const nextPt = getTrackPoint((t + 0.01) % 1);
-        const dir = nextPt.clone().sub(pt).normalize();
-        const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+    // Canvas texture generator for skyscraper windows
+    function createBuildingTexture() {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, 128, 256);
+      for (let y = 8; y < 250; y += 14) {
+        for (let x = 8; x < 120; x += 12) {
+          const lit = Math.random() > 0.4;
+          ctx.fillStyle = lit ? (Math.random() > 0.3 ? '#ffe082' : '#80d8ff') : '#1e293b';
+          ctx.fillRect(x, y, 7, 9);
+        }
+      }
+      return new THREE.CanvasTexture(c);
+    }
+    const bldgTexture = createBuildingTexture();
+    bldgTexture.wrapS = THREE.RepeatWrapping;
+    bldgTexture.wrapT = THREE.RepeatWrapping;
 
-        const dists = [ROAD_WIDTH / 2 + 13 + Math.random() * 25, -(ROAD_WIDTH / 2 + 12 + Math.random() * 20)];
-        for (let d of dists) {
-          const treeGroup = new THREE.Group();
-          const trunk = new THREE.Mesh(treeGeoTrunk, trunkMat);
-          trunk.position.y = 1.25;
-          trunk.castShadow = true;
-          const foliage = new THREE.Mesh(treeGeoCone, Math.random() > 0.5 ? leafMat : leafMat2);
-          foliage.position.y = 5.2;
-          foliage.castShadow = true;
+    // Celestial Moon / Sun
+    const celestialGeo = new THREE.SphereGeometry(18, 16, 16);
+    const celestialMat = new THREE.MeshBasicMaterial({ color: 0xffea00 });
+    const celestialMesh = new THREE.Mesh(celestialGeo, celestialMat);
+    celestialMesh.position.set(220, 140, -250);
+    scene.add(celestialMesh);
 
-          treeGroup.add(trunk, foliage);
-          const tPos = pt.clone().addScaledVector(norm, d);
-          treeGroup.position.set(tPos.x, 0, tPos.z);
-          const s = 0.8 + Math.random() * 0.5;
-          treeGroup.scale.set(s, s, s);
-          scene.add(treeGroup);
+    function applyTheme(themeKey) {
+      currentTheme = themeKey;
+      environmentGroup.clear();
+
+      if (themeKey === 'witch') {
+        // --- 1. 마녀 도시 (Witch City) ---
+        scene.background = new THREE.Color(0x160528);
+        scene.fog = new THREE.Fog(0x1a0630, 90, 360);
+        hemiLight.color.setHex(0xb388ff);
+        hemiLight.groundColor.setHex(0x210042);
+        hemiLight.intensity = 0.65;
+        dirLight.color.setHex(0xd1c4e9);
+        dirLight.intensity = 1.1;
+
+        celestialMesh.material.color.setHex(0xffeb3b);
+        celestialMesh.scale.set(1, 1, 1);
+        celestialMesh.visible = true;
+
+        grassMat.color.setHex(0x1e122b);
+        roadMat.color.setHex(0x241d33);
+
+        // Gothic Spires, Spooky Dead Trees, Glowing Pumpkins
+        const spireGeo = new THREE.ConeGeometry(2.5, 16, 6);
+        const spireMat = new THREE.MeshStandardMaterial({ color: 0x2a1b40, roughness: 0.7 });
+        const treeGeo = new THREE.ConeGeometry(3.0, 7, 5);
+        const deadTrunkMat = new THREE.MeshLambertMaterial({ color: 0x3d2b1f });
+        const pumpkinGeo = new THREE.SphereGeometry(1.2, 8, 8);
+        const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xff6d00, emissive: 0xff3d00, emissiveIntensity: 0.35 });
+
+        for (let i = 0; i < 75; i++) {
+          const t = i / 75;
+          const pt = getTrackPoint(t);
+          const nextPt = getTrackPoint((t + 0.01) % 1);
+          const dir = nextPt.clone().sub(pt).normalize();
+          const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+
+          const dists = [ROAD_WIDTH / 2 + 14 + Math.random() * 30, -(ROAD_WIDTH / 2 + 13 + Math.random() * 25)];
+          for (let d of dists) {
+            const pos = pt.clone().addScaledVector(norm, d);
+            const r = Math.random();
+            if (r < 0.4) {
+              // Gothic Spire
+              const spire = new THREE.Mesh(spireGeo, spireMat);
+              spire.position.set(pos.x, 8, pos.z);
+              spire.castShadow = true;
+              environmentGroup.add(spire);
+            } else if (r < 0.75) {
+              // Spooky Tree
+              const tree = new THREE.Mesh(treeGeo, deadTrunkMat);
+              tree.position.set(pos.x, 3.5, pos.z);
+              tree.scale.set(1, 1.4, 1);
+              environmentGroup.add(tree);
+            } else {
+              // Glowing Pumpkin
+              const p = new THREE.Mesh(pumpkinGeo, pumpkinMat);
+              p.position.set(pos.x, 1.2, pos.z);
+              environmentGroup.add(p);
+            }
+          }
+        }
+      } else if (themeKey === 'nyc') {
+        // --- 2. 뉴욕 도심 (NYC Metropolis) ---
+        scene.background = new THREE.Color(0x080f1d);
+        scene.fog = new THREE.Fog(0x0c1629, 100, 420);
+        hemiLight.color.setHex(0x82b1ff);
+        hemiLight.groundColor.setHex(0x1a233a);
+        hemiLight.intensity = 0.85;
+        dirLight.color.setHex(0xffffff);
+        dirLight.intensity = 1.35;
+
+        celestialMesh.material.color.setHex(0xffffff);
+        celestialMesh.scale.set(0.6, 0.6, 0.6);
+        celestialMesh.visible = true;
+
+        grassMat.color.setHex(0x182030);
+        roadMat.color.setHex(0x1e222b);
+
+        // Skyscrapers & Street Lamps
+        const bldgMat = new THREE.MeshStandardMaterial({
+          map: bldgTexture,
+          roughness: 0.4,
+          metalness: 0.3
+        });
+        const lampPostGeo = new THREE.CylinderGeometry(0.3, 0.3, 7, 8);
+        const lampMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+        for (let i = 0; i < 70; i++) {
+          const t = i / 70;
+          const pt = getTrackPoint(t);
+          const nextPt = getTrackPoint((t + 0.01) % 1);
+          const dir = nextPt.clone().sub(pt).normalize();
+          const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+
+          const dists = [ROAD_WIDTH / 2 + 18 + Math.random() * 35, -(ROAD_WIDTH / 2 + 16 + Math.random() * 30)];
+          for (let d of dists) {
+            const pos = pt.clone().addScaledVector(norm, d);
+            const bldgH = 25 + Math.random() * 45;
+            const bldgW = 10 + Math.random() * 12;
+            const bldgD = 10 + Math.random() * 12;
+
+            const bldgGeo = new THREE.BoxGeometry(bldgW, bldgH, bldgD);
+            const bldg = new THREE.Mesh(bldgGeo, bldgMat);
+            bldg.position.set(pos.x, bldgH / 2, pos.z);
+            bldg.castShadow = true;
+            environmentGroup.add(bldg);
+
+            // Street Light
+            const lamp = new THREE.Mesh(lampPostGeo, lampMat);
+            lamp.position.set(pos.x - norm.x * 12, 3.5, pos.z - norm.z * 12);
+            environmentGroup.add(lamp);
+          }
+        }
+      } else if (themeKey === 'joseon') {
+        // --- 3. 조선시대 (Joseon Dynasty) ---
+        scene.background = new THREE.Color(0x38101a);
+        scene.fog = new THREE.Fog(0x421522, 90, 380);
+        hemiLight.color.setHex(0xffcc80);
+        hemiLight.groundColor.setHex(0x4e342e);
+        hemiLight.intensity = 0.9;
+        dirLight.color.setHex(0xffb74d);
+        dirLight.intensity = 1.4;
+
+        celestialMesh.material.color.setHex(0xff5722);
+        celestialMesh.scale.set(1.2, 1.2, 1.2);
+        celestialMesh.visible = true;
+
+        grassMat.color.setHex(0x543825);
+        roadMat.color.setHex(0x42362b);
+
+        // Hanok Pavilions, Pine Trees, Cheongsachorong (청사초롱)
+        const roofGeo = new THREE.ConeGeometry(7, 3.5, 4);
+        roofGeo.rotateY(Math.PI / 4);
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b303a, roughness: 0.5 });
+        const pillarMat = new THREE.MeshLambertMaterial({ color: 0x8b2500 });
+        const pineLeafMat = new THREE.MeshLambertMaterial({ color: 0x2e5a36 });
+        const lanternGeo = new THREE.CylinderGeometry(0.8, 0.8, 1.8, 8);
+        const lanternMatRed = new THREE.MeshBasicMaterial({ color: 0xff1744 });
+        const lanternMatBlue = new THREE.MeshBasicMaterial({ color: 0x2979ff });
+
+        for (let i = 0; i < 70; i++) {
+          const t = i / 70;
+          const pt = getTrackPoint(t);
+          const nextPt = getTrackPoint((t + 0.01) % 1);
+          const dir = nextPt.clone().sub(pt).normalize();
+          const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+
+          const dists = [ROAD_WIDTH / 2 + 15 + Math.random() * 28, -(ROAD_WIDTH / 2 + 14 + Math.random() * 25)];
+          for (let d of dists) {
+            const pos = pt.clone().addScaledVector(norm, d);
+            const r = Math.random();
+            if (r < 0.35) {
+              // Hanok Pavilion
+              const pav = new THREE.Group();
+              const roof = new THREE.Mesh(roofGeo, roofMat);
+              roof.position.y = 7.5;
+              roof.castShadow = true;
+              pav.add(roof);
+
+              for (let px of [-3, 3]) {
+                for (let pz of [-3, 3]) {
+                  const pil = new THREE.Mesh(poleGeo, pillarMat);
+                  pil.scale.set(0.8, 0.7, 0.8);
+                  pil.position.set(px, 3, pz);
+                  pav.add(pil);
+                }
+              }
+              pav.position.set(pos.x, 0, pos.z);
+              environmentGroup.add(pav);
+            } else if (r < 0.75) {
+              // Pine Tree
+              const pine = new THREE.Mesh(new THREE.ConeGeometry(3.5, 8, 6), pineLeafMat);
+              pine.position.set(pos.x, 4.5, pos.z);
+              environmentGroup.add(pine);
+            } else {
+              // Cheongsachorong Lantern
+              const isRed = Math.random() > 0.5;
+              const lant = new THREE.Mesh(lanternGeo, isRed ? lanternMatRed : lanternMatBlue);
+              lant.position.set(pos.x - norm.x * 10, 2.5, pos.z - norm.z * 10);
+              environmentGroup.add(lant);
+            }
+          }
         }
       }
     }
-    spawnEnvironmentProps();
 
-    // --- Tire Skidmark System (Real-time Black Rubber Tracks) ---
+    applyTheme('witch');
+
+    // --- Tire Skidmark System ---
     class SkidmarkManager {
       constructor(scene, maxMarks = 1400) {
         this.maxMarks = maxMarks;
@@ -746,7 +1102,7 @@
         const idx = this.currentIdx;
         const baseV = idx * 12;
         const baseP = baseV * 3;
-        const w = 0.22; // half tire width
+        const w = 0.22;
         const y = 0.04;
 
         // Left quad
@@ -795,7 +1151,7 @@
         let needsUpdate = false;
         for (let i = 0; i < this.count; i++) {
           if (this.ages[i] > 0) {
-            this.ages[i] -= dt * 0.15; // fades over ~6.5s
+            this.ages[i] -= dt * 0.15;
             if (this.ages[i] < 0) this.ages[i] = 0;
             const baseV = i * 12;
             const alphaVal = this.ages[i];
@@ -803,9 +1159,7 @@
             needsUpdate = true;
           }
         }
-        if (needsUpdate) {
-          this.geom.attributes.alpha.needsUpdate = true;
-        }
+        if (needsUpdate) this.geom.attributes.alpha.needsUpdate = true;
       }
     }
     const skidmarkManager = new SkidmarkManager(scene);
@@ -816,13 +1170,11 @@
     const sparkPositions = new Float32Array(SPARK_COUNT * 3);
     const sparkVelocities = [];
     const sparkLifes = new Float32Array(SPARK_COUNT);
-    for (let i = 0; i < SPARK_COUNT; i++) {
-      sparkVelocities.push(new THREE.Vector3());
-    }
+    for (let i = 0; i < SPARK_COUNT; i++) sparkVelocities.push(new THREE.Vector3());
     sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
     const sparkMat = new THREE.PointsMaterial({
       color: 0xffea00,
-      size: 0.95,
+      size: 0.9,
       transparent: true,
       opacity: 0.95,
       blending: THREE.AdditiveBlending
@@ -830,18 +1182,18 @@
     const sparkParticles = new THREE.Points(sparkGeo, sparkMat);
     scene.add(sparkParticles);
 
-    function emitCollisionSparks(origin, count = 15) {
+    function emitCollisionSparks(origin, count = 12) {
       let spawned = 0;
       for (let i = 0; i < SPARK_COUNT && spawned < count; i++) {
         if (sparkLifes[i] <= 0) {
-          sparkLifes[i] = 0.35 + Math.random() * 0.25;
+          sparkLifes[i] = 0.3 + Math.random() * 0.25;
           sparkPositions[i * 3 + 0] = origin.x;
-          sparkPositions[i * 3 + 1] = origin.y + 0.6;
+          sparkPositions[i * 3 + 1] = origin.y + 0.5;
           sparkPositions[i * 3 + 2] = origin.z;
           sparkVelocities[i].set(
-            (Math.random() - 0.5) * 16,
-            Math.random() * 12 + 3,
-            (Math.random() - 0.5) * 16
+            (Math.random() - 0.5) * 15,
+            Math.random() * 10 + 3,
+            (Math.random() - 0.5) * 15
           );
           spawned++;
         }
@@ -857,7 +1209,7 @@
           sparkPositions[i * 3 + 0] += sparkVelocities[i].x * dt;
           sparkPositions[i * 3 + 1] += sparkVelocities[i].y * dt;
           sparkPositions[i * 3 + 2] += sparkVelocities[i].z * dt;
-          sparkVelocities[i].y -= 25 * dt; // gravity
+          sparkVelocities[i].y -= 25 * dt;
           needsUpdate = true;
         } else {
           sparkPositions[i * 3 + 1] = -100;
@@ -866,31 +1218,28 @@
       if (needsUpdate) sparkGeo.attributes.position.needsUpdate = true;
     }
 
-    // --- Comic "💥 쿵!" Crash Impact Trigger ---
+    // --- Natural Smooth Collision Trigger (Zero Frame Freezes!) ---
     let crashPopupTimer = 0;
     const crashPopupEl = document.getElementById('crash-popup');
     const cameraCrashKick = new THREE.Vector3();
 
-    function triggerCrashEffect(isPlayerInvolved = true) {
-      if (isPlayerInvolved) {
-        cameraCrashKick.set((Math.random() - 0.5) * 2.2, Math.random() * 0.9 + 0.5, (Math.random() - 0.5) * 2.2);
-        engineAudio.playCrashSound();
-        if (crashPopupEl) {
-          crashPopupEl.classList.remove('active');
-          void crashPopupEl.offsetWidth; // Force reflow
-          crashPopupEl.classList.add('active');
-          crashPopupTimer = 0.45;
-        }
+    function triggerSmoothCrash(intensity = 0.5) {
+      cameraCrashKick.set((Math.random() - 0.5) * 1.5 * intensity, Math.random() * 0.7 * intensity, (Math.random() - 0.5) * 1.5 * intensity);
+      engineAudio.playCrashSound();
+      if (crashPopupEl && intensity > 0.4) {
+        crashPopupEl.classList.remove('active');
+        void crashPopupEl.offsetWidth;
+        crashPopupEl.classList.add('active');
+        crashPopupTimer = 0.35;
       }
     }
 
-    // --- 3D Podium Stage (시상대) ---
+    // --- 3D Podium Stage ---
     const PODIUM_ORIGIN = new THREE.Vector3(0, 0, -315);
     const podiumGroup = new THREE.Group();
     podiumGroup.position.copy(PODIUM_ORIGIN);
     scene.add(podiumGroup);
 
-    // Stage Dais (checkered circular base)
     const daisGeo = new THREE.CylinderGeometry(20, 21, 1.2, 32);
     const daisMat = new THREE.MeshStandardMaterial({ color: 0x1f2438, roughness: 0.3, metalness: 0.2 });
     const daisMesh = new THREE.Mesh(daisGeo, daisMat);
@@ -898,39 +1247,30 @@
     daisMesh.receiveShadow = true;
     podiumGroup.add(daisMesh);
 
-    // Pedestals:
-    // 1st (Gold, Center)
     const p1Geo = new THREE.CylinderGeometry(3.6, 3.8, 3.6, 28);
     const p1Mat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.85, roughness: 0.18 });
     const p1Mesh = new THREE.Mesh(p1Geo, p1Mat);
     p1Mesh.position.set(0, 1.2 + 1.8, 0);
-    p1Mesh.castShadow = true;
     podiumGroup.add(p1Mesh);
 
-    // 2nd (Silver, Left)
     const p2Geo = new THREE.CylinderGeometry(3.2, 3.4, 2.4, 28);
     const p2Mat = new THREE.MeshStandardMaterial({ color: 0xd0d8e0, metalness: 0.75, roughness: 0.25 });
     const p2Mesh = new THREE.Mesh(p2Geo, p2Mat);
     p2Mesh.position.set(-8.5, 1.2 + 1.2, -1.0);
-    p2Mesh.castShadow = true;
     podiumGroup.add(p2Mesh);
 
-    // 3rd (Bronze, Right)
     const p3Geo = new THREE.CylinderGeometry(2.8, 3.0, 1.4, 28);
     const p3Mat = new THREE.MeshStandardMaterial({ color: 0xcd7f32, metalness: 0.75, roughness: 0.3 });
     const p3Mesh = new THREE.Mesh(p3Geo, p3Mat);
     p3Mesh.position.set(8.5, 1.2 + 0.7, -1.0);
-    p3Mesh.castShadow = true;
     podiumGroup.add(p3Mesh);
 
-    // 4th Ground Spot (Far Right)
     const p4Geo = new THREE.CylinderGeometry(2.2, 2.2, 0.08, 20);
     const p4Mat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.8 });
     const p4Mesh = new THREE.Mesh(p4Geo, p4Mat);
     p4Mesh.position.set(16.0, 1.2 + 0.04, -2.5);
     podiumGroup.add(p4Mesh);
 
-    // Rotating Golden Championship Trophy above 1st
     const trophyGroup = new THREE.Group();
     const cupGeo = new THREE.CylinderGeometry(1.2, 0.5, 1.8, 16);
     const cupMat = new THREE.MeshStandardMaterial({ color: 0xffea00, metalness: 0.9, roughness: 0.1 });
@@ -944,18 +1284,17 @@
     trophyGroup.position.set(0, 1.2 + 3.6 + 2.8, 0);
     podiumGroup.add(trophyGroup);
 
-    // Confetti Cannons System
     const CONFETTI_COUNT = 240;
     const confettiGeo = new THREE.BufferGeometry();
     const confettiPositions = new Float32Array(CONFETTI_COUNT * 3);
     const confettiColors = new Float32Array(CONFETTI_COUNT * 3);
     const confettiVelocities = [];
     const cPalette = [
-      [1.0, 0.84, 0.0],  // Gold
-      [0.0, 0.9, 1.0],   // Cyan
-      [1.0, 0.1, 0.4],   // Red
-      [0.2, 1.0, 0.3],   // Lime
-      [0.85, 0.2, 1.0]   // Violet
+      [1.0, 0.84, 0.0],
+      [0.0, 0.9, 1.0],
+      [1.0, 0.1, 0.4],
+      [0.2, 1.0, 0.3],
+      [0.85, 0.2, 1.0]
     ];
     for (let i = 0; i < CONFETTI_COUNT; i++) {
       confettiPositions[i * 3 + 0] = PODIUM_ORIGIN.x + (Math.random() - 0.5) * 36;
@@ -1003,12 +1342,11 @@
       confettiGeo.attributes.position.needsUpdate = true;
     }
 
-    // --- Lateral Wind Particles (Clear Center FOV) ---
+    // --- Lateral Wind Particles ---
     const SPEED_PARTICLE_COUNT = 60;
     const speedGeo = new THREE.BufferGeometry();
     const speedPos = new Float32Array(SPEED_PARTICLE_COUNT * 6);
     speedGeo.setAttribute('position', new THREE.BufferAttribute(speedPos, 3));
-
     const speedMat = new THREE.LineBasicMaterial({
       color: 0xc8f0ff,
       transparent: true,
@@ -1028,8 +1366,7 @@
 
     function resetWindParticle(p) {
       const side = Math.random() < 0.5 ? -1 : 1;
-      const lateralDist = 3.6 + Math.random() * 6.5;
-      p.x = side * lateralDist;
+      p.x = side * (3.6 + Math.random() * 6.5);
       p.y = 0.5 + Math.random() * 3.6;
       p.z = 2.0 + Math.random() * 18.0;
       p.speed = 1.2 + Math.random() * 1.8;
@@ -1053,9 +1390,7 @@
         p.z -= p.speed * (1 + speedNorm * 3.5);
         p.life -= 0.035;
 
-        if (p.z < -4.0 || p.life <= 0) {
-          resetWindParticle(p);
-        }
+        if (p.z < -4.0 || p.life <= 0) resetWindParticle(p);
 
         const worldX1 = playerPos.x + (p.x * cosH + p.z * sinH);
         const worldY1 = playerPos.y + p.y;
@@ -1089,8 +1424,7 @@
       color: 0xdddddd,
       size: 1.4,
       transparent: true,
-      opacity: 0.65,
-      blending: THREE.NormalBlending
+      opacity: 0.65
     });
     const driftParticles = new THREE.Points(driftGeo, driftMat);
     scene.add(driftParticles);
@@ -1126,7 +1460,7 @@
       if (active) driftGeo.attributes.position.needsUpdate = true;
     }
 
-    // --- 3D Exhaust Booster Flame Mesh ---
+    // --- 3D Booster Exhaust Flames ---
     function createBoosterFlameMesh() {
       const flameGroup = new THREE.Group();
       flameGroup.visible = false;
@@ -1134,8 +1468,7 @@
       pipeLeft.position.set(-0.7, 0.45, -1.85);
       const pipeRight = createSinglePipeFlame();
       pipeRight.position.set(0.7, 0.45, -1.85);
-      flameGroup.add(pipeLeft);
-      flameGroup.add(pipeRight);
+      flameGroup.add(pipeLeft, pipeRight);
       return { group: flameGroup, left: pipeLeft, right: pipeRight };
     }
 
@@ -1143,23 +1476,13 @@
       const g = new THREE.Group();
       const coreGeo = new THREE.ConeGeometry(0.24, 1.4, 8);
       coreGeo.rotateX(-Math.PI / 2);
-      const coreMat = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.95,
-        blending: THREE.AdditiveBlending
-      });
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending });
       const core = new THREE.Mesh(coreGeo, coreMat);
       core.position.z = -0.7;
 
       const outerGeo = new THREE.ConeGeometry(0.42, 2.2, 8);
       outerGeo.rotateX(-Math.PI / 2);
-      const outerMat = new THREE.MeshBasicMaterial({
-        color: 0xff3d00,
-        transparent: true,
-        opacity: 0.75,
-        blending: THREE.AdditiveBlending
-      });
+      const outerMat = new THREE.MeshBasicMaterial({ color: 0xff3d00, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending });
       const outer = new THREE.Mesh(outerGeo, outerMat);
       outer.position.z = -1.1;
 
@@ -1167,56 +1490,13 @@
       return g;
     }
 
-    // --- Procedural Fallback Kart ---
     function createProceduralKart(bodyColorHex) {
       const group = new THREE.Group();
       const bodyGeo = new THREE.BoxGeometry(2.4, 0.9, 3.8);
-      const bodyMat = new THREE.MeshStandardMaterial({
-        color: bodyColorHex,
-        roughness: 0.35,
-        metalness: 0.5
-      });
+      const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColorHex, roughness: 0.35, metalness: 0.5 });
       const body = new THREE.Mesh(bodyGeo, bodyMat);
       body.position.y = 0.8;
-      body.castShadow = true;
       group.add(body);
-
-      const noseGeo = new THREE.BoxGeometry(2.0, 0.55, 1.4);
-      const nose = new THREE.Mesh(noseGeo, bodyMat);
-      nose.position.set(0, 0.55, 2.2);
-      nose.castShadow = true;
-      group.add(nose);
-
-      const spoilerGeo = new THREE.BoxGeometry(2.6, 0.15, 0.8);
-      const spoilerMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-      const spoiler = new THREE.Mesh(spoilerGeo, spoilerMat);
-      spoiler.position.set(0, 1.6, -1.8);
-      group.add(spoiler);
-
-      const wheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.5, 12);
-      const wheelMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-      const rimGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.52, 12);
-      const rimMat = new THREE.MeshLambertMaterial({ color: 0xdddddd });
-
-      const wheelPositions = [
-        [1.3, 0.55, 1.4],
-        [-1.3, 0.55, 1.4],
-        [1.3, 0.55, -1.4],
-        [-1.3, 0.55, -1.4]
-      ];
-
-      wheelPositions.forEach(([x, y, z]) => {
-        const wGroup = new THREE.Group();
-        const tire = new THREE.Mesh(wheelGeo, wheelMat);
-        tire.rotation.z = Math.PI / 2;
-        tire.castShadow = true;
-        const rim = new THREE.Mesh(rimGeo, rimMat);
-        rim.rotation.z = Math.PI / 2;
-        wGroup.add(tire, rim);
-        wGroup.position.set(x, y, z);
-        group.add(wGroup);
-      });
-
       return group;
     }
 
@@ -1262,13 +1542,11 @@
           this.osc1.start();
           this.osc2.start();
 
-          // Drift Tire Screech Noise
+          // Drift noise
           const bufferSize = this.ctx.sampleRate * 2;
           const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
           const out = noiseBuffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) {
-            out[i] = Math.random() * 2 - 1;
-          }
+          for (let i = 0; i < bufferSize; i++) out[i] = Math.random() * 2 - 1;
           const noiseSrc = this.ctx.createBufferSource();
           noiseSrc.buffer = noiseBuffer;
           noiseSrc.loop = true;
@@ -1317,21 +1595,19 @@
         if (!this.initialized || this.isMuted) return;
         try {
           const t = this.ctx.currentTime;
-          // Punchy 808-style bass drop
           const punchOsc = this.ctx.createOscillator();
           const punchGain = this.ctx.createGain();
           punchOsc.type = 'sine';
-          punchOsc.frequency.setValueAtTime(160, t);
-          punchOsc.frequency.exponentialRampToValueAtTime(32, t + 0.26);
-          punchGain.gain.setValueAtTime(0.65, t);
-          punchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+          punchOsc.frequency.setValueAtTime(150, t);
+          punchOsc.frequency.exponentialRampToValueAtTime(35, t + 0.22);
+          punchGain.gain.setValueAtTime(0.6, t);
+          punchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
           punchOsc.connect(punchGain);
           punchGain.connect(this.ctx.destination);
           punchOsc.start(t);
-          punchOsc.stop(t + 0.28);
+          punchOsc.stop(t + 0.24);
 
-          // Impact noise crack
-          const nLen = 0.22;
+          const nLen = 0.18;
           const bSize = Math.floor(this.ctx.sampleRate * nLen);
           const nBuf = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
           const nData = nBuf.getChannelData(0);
@@ -1340,9 +1616,9 @@
           nSrc.buffer = nBuf;
           const nFilter = this.ctx.createBiquadFilter();
           nFilter.type = 'highpass';
-          nFilter.frequency.setValueAtTime(750, t);
+          nFilter.frequency.setValueAtTime(800, t);
           const nGain = this.ctx.createGain();
-          nGain.gain.setValueAtTime(0.48, t);
+          nGain.gain.setValueAtTime(0.4, t);
           nGain.gain.exponentialRampToValueAtTime(0.001, t + nLen);
           nSrc.connect(nFilter);
           nFilter.connect(nGain);
@@ -1354,7 +1630,7 @@
       playVictoryFanfare() {
         if (!this.initialized || this.isMuted) return;
         try {
-          const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // C E G C E G
+          const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
           const startT = this.ctx.currentTime + 0.1;
           notes.forEach((freq, idx) => {
             const osc = this.ctx.createOscillator();
@@ -1405,57 +1681,21 @@
       }
     }
 
-    // Distinct Vibrant Kart Themes
     const KART_THEMES = {
-      'kart-oobi': {
-        name: 'Player (Electric Cyan)',
-        bodyColor: 0x00c8ff,
-        emissive: 0x00284d,
-        accentColor: 0xffffff,
-        minimapColor: '#00e5ff'
-      },
-      'kart-oodi': {
-        name: 'Oodi (Flame Red)',
-        bodyColor: 0xff1744,
-        emissive: 0x3d0008,
-        accentColor: 0xffeb3b,
-        minimapColor: '#ff2d55'
-      },
-      'kart-ooli': {
-        name: 'Ooli (Toxic Lime)',
-        bodyColor: 0x00e676,
-        emissive: 0x003311,
-        accentColor: 0xeeff41,
-        minimapColor: '#00ff66'
-      },
-      'kart-oopi': {
-        name: 'Oopi (Cyber Violet)',
-        bodyColor: 0xd500f9,
-        emissive: 0x2b003b,
-        accentColor: 0xff4081,
-        minimapColor: '#d500f9'
-      }
+      'kart-oobi': { name: 'Player (Electric Cyan)', bodyColor: 0x00c8ff, emissive: 0x00284d, minimapColor: '#00e5ff' },
+      'kart-oodi': { name: 'Oodi (Flame Red)', bodyColor: 0xff1744, emissive: 0x3d0008, minimapColor: '#ff2d55' },
+      'kart-ooli': { name: 'Ooli (Toxic Lime)', bodyColor: 0x00e676, emissive: 0x003311, minimapColor: '#00ff66' },
+      'kart-oopi': { name: 'Oopi (Cyber Violet)', bodyColor: 0xd500f9, emissive: 0x2b003b, minimapColor: '#d500f9' }
     };
 
     function setupModelContainer(model, modelKey, callback) {
-      const wheels = {
-        frontLeft: null,
-        frontRight: null,
-        backLeft: null,
-        backRight: null
-      };
-
-      const theme = KART_THEMES[modelKey] || {
-        bodyColor: 0xffffff,
-        emissive: 0x000000,
-        minimapColor: '#ffaa00'
-      };
+      const wheels = { frontLeft: null, frontRight: null, backLeft: null, backRight: null };
+      const theme = KART_THEMES[modelKey] || { bodyColor: 0xffffff, emissive: 0x000000, minimapColor: '#ffaa00' };
 
       model.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
-
           const meshName = (child.name || '').toLowerCase();
           const isWheel = meshName.includes('wheel') || meshName.includes('tire');
 
@@ -1480,17 +1720,11 @@
         const name = (child.name || '').toLowerCase();
         if (name.includes('wheel') || name.includes('tire')) {
           if (name.includes('front') || name.includes('f_')) {
-            if (name.includes('left') || name.includes('l_') || name.includes('_l')) {
-              wheels.frontLeft = child;
-            } else {
-              wheels.frontRight = child;
-            }
+            if (name.includes('left') || name.includes('l_') || name.includes('_l')) wheels.frontLeft = child;
+            else wheels.frontRight = child;
           } else if (name.includes('back') || name.includes('rear') || name.includes('r_') || name.includes('b_')) {
-            if (name.includes('left') || name.includes('l_') || name.includes('_l')) {
-              wheels.backLeft = child;
-            } else {
-              wheels.backRight = child;
-            }
+            if (name.includes('left') || name.includes('l_') || name.includes('_l')) wheels.backLeft = child;
+            else wheels.backRight = child;
           }
         }
       });
@@ -1527,19 +1761,12 @@
           const binaryString = window.atob(b64);
           const len = binaryString.length;
           const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
+          for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
           gltfLoader.parse(
             bytes.buffer,
             '',
-            (gltf) => {
-              setupModelContainer(gltf.scene, modelKey, callback);
-            },
-            (err) => {
-              console.warn('Error parsing base64 for ' + modelKey, err);
-              loadFromFile();
-            }
+            (gltf) => setupModelContainer(gltf.scene, modelKey, callback),
+            (err) => loadFromFile()
           );
           return;
         } catch (e) {
@@ -1553,12 +1780,9 @@
         const localPath = 'models/' + modelKey + '.glb';
         gltfLoader.load(
           localPath,
-          (gltf) => {
-            setupModelContainer(gltf.scene, modelKey, callback);
-          },
+          (gltf) => setupModelContainer(gltf.scene, modelKey, callback),
           undefined,
           (err) => {
-            console.warn('GLB failed to load from ' + localPath + ', using procedural fallback', err);
             const procedural = createProceduralKart(fallbackColor);
             callback(procedural, null);
             checkAllModelsDone();
@@ -1567,12 +1791,12 @@
       }
     }
 
-    // --- Kart Entity with KartRider Shift-Drift, 250km/h Boost & Collision Physics ---
+    // --- Kart Entity with Continuous Natural Bumper Physics ---
     class Kart {
       constructor(isPlayer, modelKey, fallbackColor, name, baseMaxKmh = 150, kartColor = '#00aaff') {
         this.isPlayer = isPlayer;
         this.name = name;
-        this.baseMaxKmh = baseMaxKmh; // 150 km/h cruising
+        this.baseMaxKmh = baseMaxKmh;
         this.maxKmh = baseMaxKmh;
         this.kartColor = kartColor;
         this.wheels = null;
@@ -1580,7 +1804,6 @@
         this.mesh = new THREE.Group();
         scene.add(this.mesh);
 
-        // 3D Exhaust Booster Flame
         this.boosterFlame = createBoosterFlameMesh();
         this.mesh.add(this.boosterFlame.group);
 
@@ -1590,39 +1813,35 @@
         });
 
         this.pos = new THREE.Vector3();
-        this.heading = 0; // Radians (+Z forward)
+        this.heading = 0;
 
-        // Physics vectors
         this.velocity = new THREE.Vector2(0, 0);
         this.forwardSpeed = 0;
         this.lateralSpeed = 0;
         this.steerAngle = 0;
 
-        // KartRider Mechanics
+        // Mechanics
         this.isDrifting = false;
         this.driftDir = 0;
         this.driftDuration = 0;
-        this.driftGauge = 0; // 0 to 100
-        this.boosters = 1;   // Start with 1 N2O booster!
+        this.driftGauge = 0;
+        this.boosters = 1;
         this.isBoosting = false;
         this.boosterTimer = 0;
         this.miniTurboTimer = 0;
         this.driftYawOffset = 0;
-
-        // Collision & Hit-Stop
-        this.hitStopTimer = 0; // Pauses physics momentarily on crash ("쿵!")
 
         // Surface conditions
         this.distFromCenter = 0;
         this.surfaceGrip = 1.0;
         this.surfaceTopSpeedRatio = 1.0;
 
-        // Skidmark tracking
+        // Skidmarks
         this.lastLeftTirePos = new THREE.Vector3();
         this.lastRightTirePos = new THREE.Vector3();
         this.hasTireHistory = false;
 
-        // Progress Tracking
+        // Progress
         this.currentWaypointIdx = 0;
         this.lap = 1;
         this.lapProgress = 0;
@@ -1630,7 +1849,6 @@
         this.finished = false;
         this.finishTime = 0;
 
-        // AI navigation
         this.aiOffset = (Math.random() - 0.5) * 6;
       }
 
@@ -1638,12 +1856,12 @@
         if (this.boosters > 0 && !this.isBoosting) {
           this.boosters--;
           this.isBoosting = true;
-          this.boosterTimer = 3.2; // 3.2s of 250 km/h surge
+          this.boosterTimer = 3.2;
         }
       }
 
       triggerMiniTurbo() {
-        this.miniTurboTimer = 0.85; // 0.85s of 200 km/h surge
+        this.miniTurboTimer = 0.85;
       }
 
       setGridPosition(gridIndex) {
@@ -1671,7 +1889,6 @@
         this.miniTurboTimer = 0;
         this.driftGauge = 0;
         this.boosters = 1;
-        this.hitStopTimer = 0;
         this.currentWaypointIdx = 0;
         this.lap = 1;
         this.lapProgress = 0;
@@ -1695,7 +1912,6 @@
           }
         }
 
-        // Lap progression
         if (nearestIdx > this.currentWaypointIdx && nearestIdx - this.currentWaypointIdx < 15) {
           this.currentWaypointIdx = nearestIdx;
         } else if (this.currentWaypointIdx > totalW - 12 && nearestIdx < 12) {
@@ -1710,7 +1926,6 @@
         this.lapProgress = this.currentWaypointIdx / totalW;
         this.totalProgress = (Math.min(this.lap, TOTAL_LAPS + 1) - 1) + this.lapProgress;
 
-        // Surface Check: Grass beyond curb
         this.distFromCenter = minDist;
         const trackHalfW = ROAD_WIDTH / 2;
         if (minDist > trackHalfW + 1.2) {
@@ -1721,33 +1936,38 @@
           this.surfaceTopSpeedRatio = 1.0;
         }
 
-        // Wall / Guardrail Boundary Collision ("쿵!")
-        if (minDist > trackHalfW + 2.0) {
+        // --- Smooth Continuous Wall Collision (No Stutter/Freezes) ---
+        if (minDist > trackHalfW + 1.2) {
           const centerPt = waypoints[this.currentWaypointIdx];
           const toCenter = centerPt.clone().sub(this.pos);
           toCenter.y = 0;
-          // Push back inside boundary
-          this.pos.addScaledVector(toCenter.normalize(), (minDist - (trackHalfW + 1.8)));
+          const normalInward = toCenter.normalize();
 
-          // Squelch velocity and bounce
-          this.forwardSpeed *= 0.35;
-          this.lateralSpeed = -this.lateralSpeed * 0.4;
-          this.isDrifting = false;
-          this.isBoosting = false;
-          this.hitStopTimer = 0.12; // Momentary impact freeze
+          // Smooth positional spring repulsion
+          const penetration = minDist - (trackHalfW + 1.2);
+          this.pos.addScaledVector(normalInward, penetration * 0.45);
 
-          emitCollisionSparks(this.pos, 16);
-          triggerCrashEffect(this.isPlayer);
+          // Momentum deflection
+          const currentVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.y);
+          const dot = currentVel.dot(normalInward);
+          if (dot < 0) {
+            // Rebound normal velocity with spring elasticity
+            const impulse = normalInward.clone().multiplyScalar(-(1 + 0.48) * dot);
+            currentVel.add(impulse);
+            currentVel.multiplyScalar(0.92); // Glancing wall friction
+
+            this.velocity.x = currentVel.x;
+            this.velocity.y = currentVel.z;
+            this.forwardSpeed *= 0.88;
+            this.lateralSpeed = -this.lateralSpeed * 0.45;
+
+            emitCollisionSparks(this.pos, 8);
+            if (this.isPlayer) triggerSmoothCrash(0.5);
+          }
         }
       }
 
       applyPhysics(gasInput, brakeInput, steerInput, shiftInput, boosterTriggerInput) {
-        // Hit-Stop impact freeze
-        if (this.hitStopTimer > 0) {
-          this.hitStopTimer -= 1 / 60;
-          return;
-        }
-
         const fwdX = Math.sin(this.heading);
         const fwdZ = Math.cos(this.heading);
         const rightX = Math.cos(this.heading);
@@ -1756,35 +1976,22 @@
         this.steerAngle = steerInput;
         const currentKmh = Math.max(0, this.forwardSpeed * KMH_PER_UNIT);
 
-        // Booster Activation
-        if (boosterTriggerInput) {
-          this.triggerN2OBooster();
-        }
+        if (boosterTriggerInput) this.triggerN2OBooster();
 
-        // Timers
         if (this.isBoosting) {
           this.boosterTimer -= 1 / 60;
-          if (this.boosterTimer <= 0) {
-            this.isBoosting = false;
-          }
+          if (this.boosterTimer <= 0) this.isBoosting = false;
         }
-        if (this.miniTurboTimer > 0) {
-          this.miniTurboTimer -= 1 / 60;
-        }
+        if (this.miniTurboTimer > 0) this.miniTurboTimer -= 1 / 60;
 
-        // Top Speed calculation:
-        // Booster: 250 km/h! Mini-Turbo: 200 km/h! Cruising: 150 km/h!
         let targetTopKmh = this.baseMaxKmh;
-        if (this.isBoosting) {
-          targetTopKmh = 250.0;
-        } else if (this.miniTurboTimer > 0) {
-          targetTopKmh = 200.0;
-        }
+        if (this.isBoosting) targetTopKmh = 250.0;
+        else if (this.miniTurboTimer > 0) targetTopKmh = 200.0;
 
         const effectiveTopKmh = targetTopKmh * this.surfaceTopSpeedRatio;
         const effectiveTopUnits = effectiveTopKmh / KMH_PER_UNIT;
 
-        // KartRider Shift-Drift System
+        // Shift-Drift
         const wantsDrift = shiftInput && Math.abs(steerInput) > 0.15 && currentKmh > 40;
         if (wantsDrift) {
           if (!this.isDrifting) {
@@ -1794,7 +2001,6 @@
           }
           this.driftDuration += 1 / 60;
 
-          // Charge Drift Gauge
           const chargeRate = (currentKmh / 150) * 1.1;
           this.driftGauge += chargeRate;
           if (this.driftGauge >= 100) {
@@ -1806,34 +2012,26 @@
             }
           }
 
-          // Visual chassis drift yaw angle
           const targetDriftYaw = this.driftDir * 0.44;
           this.driftYawOffset = THREE.MathUtils.lerp(this.driftYawOffset, targetDriftYaw, 0.18);
         } else {
           if (this.isDrifting) {
-            // Drift exit: trigger instant mini-turbo if drift duration was good (> 0.32s)
-            if (this.driftDuration > 0.32 && gasInput > 0) {
-              this.triggerMiniTurbo();
-            }
+            if (this.driftDuration > 0.32 && gasInput > 0) this.triggerMiniTurbo();
             this.isDrifting = false;
             if (this.isPlayer) engineAudio.setDrifting(false);
           }
           this.driftYawOffset = THREE.MathUtils.lerp(this.driftYawOffset, 0, 0.2);
         }
 
-        // Wheel positions for smoke & skidmarks
         const rearLeft = this.pos.clone().add(new THREE.Vector3(rightX * -1.05 - fwdX * 1.2, 0, rightZ * -1.05 - fwdZ * 1.2));
         const rearRight = this.pos.clone().add(new THREE.Vector3(rightX * 1.05 - fwdX * 1.2, 0, rightZ * 1.05 - fwdZ * 1.2));
 
-        if (this.isDrifting) {
-          if (this.isPlayer) {
-            engineAudio.setDrifting(true);
-            emitDriftSmoke(rearLeft);
-            emitDriftSmoke(rearRight);
-          }
+        if (this.isDrifting && this.isPlayer) {
+          engineAudio.setDrifting(true);
+          emitDriftSmoke(rearLeft);
+          emitDriftSmoke(rearRight);
         }
 
-        // Tire Skidmarks: When drifting, boosting, hard braking, or high lateral slip
         const shouldSkid = this.isDrifting || this.isBoosting || (brakeInput > 0 && currentKmh > 35) || (Math.abs(this.lateralSpeed) > 0.07 && currentKmh > 50);
         if (shouldSkid && this.hasTireHistory) {
           const distMoved = this.pos.distanceTo(this.lastLeftTirePos);
@@ -1848,59 +2046,41 @@
           this.hasTireHistory = true;
         }
 
-        // Steering Authority
         const speedNorm = THREE.MathUtils.clamp(currentKmh / 250, 0, 1);
         let maxSteer = THREE.MathUtils.lerp(0.048, 0.015, speedNorm);
-        if (this.isDrifting) {
-          maxSteer *= 1.35;
-        }
+        if (this.isDrifting) maxSteer *= 1.35;
         const steerDir = this.forwardSpeed >= -0.01 ? 1 : -1;
         this.heading += steerInput * maxSteer * steerDir;
 
-        // Engine Force
         let engineForce = 0;
         if (gasInput > 0) {
           const speedRatio = THREE.MathUtils.clamp(this.forwardSpeed / effectiveTopUnits, 0, 1);
           const accelCurve = Math.pow(Math.max(0, 1 - speedRatio), 1.12);
           let baseForce = 0.020 * accelCurve * this.surfaceGrip;
 
-          // Rocket thrust during N2O Booster & Mini-Turbo
-          if (this.isBoosting) {
-            baseForce += 0.038; // Surges straight to 250 km/h!
-          } else if (this.miniTurboTimer > 0) {
-            baseForce += 0.022;
-          }
+          if (this.isBoosting) baseForce += 0.038;
+          else if (this.miniTurboTimer > 0) baseForce += 0.022;
           engineForce = baseForce;
         }
 
-        // Brake & Reverse
         let brakeForce = 0;
         if (brakeInput > 0) {
-          if (this.forwardSpeed > 0.02) {
-            brakeForce = -0.042;
-          } else {
+          if (this.forwardSpeed > 0.02) brakeForce = -0.042;
+          else {
             const maxRev = MAX_REVERSE_SPEED * this.surfaceTopSpeedRatio;
-            if (this.forwardSpeed > -maxRev) {
-              brakeForce = -0.014 * this.surfaceGrip;
-            }
+            if (this.forwardSpeed > -maxRev) brakeForce = -0.014 * this.surfaceGrip;
           }
         }
 
-        // Resistances (Aero + Rolling Drag)
         const rollingDrag = 0.0018 * Math.sign(this.forwardSpeed);
         const aeroDrag = 0.010 * this.forwardSpeed * Math.abs(this.forwardSpeed);
-        const totalResistance = rollingDrag + aeroDrag;
-
-        this.forwardSpeed += (engineForce + brakeForce - totalResistance);
+        this.forwardSpeed += (engineForce + brakeForce - (rollingDrag + aeroDrag));
 
         if (this.forwardSpeed > effectiveTopUnits) {
           this.forwardSpeed = THREE.MathUtils.lerp(this.forwardSpeed, effectiveTopUnits, 0.12);
         }
-        if (this.forwardSpeed < -MAX_REVERSE_SPEED) {
-          this.forwardSpeed = -MAX_REVERSE_SPEED;
-        }
+        if (this.forwardSpeed < -MAX_REVERSE_SPEED) this.forwardSpeed = -MAX_REVERSE_SPEED;
 
-        // Lateral Grip & Drift Slide
         const driftGrip = this.isDrifting ? 0.90 : (speedNorm > 0.6 && Math.abs(steerInput) > 0.6 ? 0.88 : 0.76);
         const gripRetention = (1 - (0.24 * this.surfaceGrip)) * driftGrip;
         this.lateralSpeed *= gripRetention;
@@ -1922,12 +2102,10 @@
         this.pos.z += this.velocity.y;
         this.mesh.position.copy(this.pos);
 
-        // Apply chassis yaw & roll
         this.mesh.rotation.y = this.heading + this.driftYawOffset;
         const rollTilt = THREE.MathUtils.clamp(-this.lateralSpeed * 0.45, -0.14, 0.14);
         this.mesh.rotation.z = rollTilt;
 
-        // Animate wheels
         if (this.wheels) {
           const wheelRoll = this.forwardSpeed * 2.8;
           if (this.wheels.frontLeft) this.wheels.frontLeft.rotation.x -= wheelRoll;
@@ -1940,7 +2118,6 @@
           if (this.wheels.frontRight) this.wheels.frontRight.rotation.y = visualSteer;
         }
 
-        // Animate 3D Exhaust Booster Flames
         if (this.boosterFlame) {
           const flameActive = this.isBoosting || this.miniTurboTimer > 0;
           this.boosterFlame.group.visible = flameActive;
@@ -1955,7 +2132,6 @@
       }
     }
 
-    // --- Instantiate Karts ---
     const playerKart = new Kart(true, 'kart-oobi', 0x00c8ff, 'Player (Electric Cyan)', 150.0, '#00e5ff');
     const aiKarts = [
       new Kart(false, 'kart-oodi', 0xff1744, 'Oodi (Flame Red)', 150.0, '#ff2d55'),
@@ -1964,58 +2140,58 @@
     ];
     const allKarts = [playerKart, ...aiKarts];
 
-    // --- Kart vs Kart Collision Physics with "쿵!" ---
+    // --- Natural Smooth Kart-to-Kart Bumper Collisions (No Freeze!) ---
     function checkKartCollisions() {
-      const kartRadius = 2.5;
+      const kartRadius = 2.4;
       for (let i = 0; i < allKarts.length; i++) {
         for (let j = i + 1; j < allKarts.length; j++) {
           const kA = allKarts[i];
           const kB = allKarts[j];
-          const diffX = kB.pos.x - kA.pos.x;
-          const diffZ = kB.pos.z - kA.pos.z;
-          const distSq = diffX * diffX + diffZ * diffZ;
+          const dx = kB.pos.x - kA.pos.x;
+          const dz = kB.pos.z - kA.pos.z;
+          const distSq = dx * dx + dz * dz;
           const minDist = kartRadius * 2;
 
           if (distSq < minDist * minDist && distSq > 0.0001) {
             const dist = Math.sqrt(distSq);
-            const nx = diffX / dist;
-            const nz = diffZ / dist;
+            const nx = dx / dist;
+            const nz = dz / dist;
             const overlap = (minDist - dist) * 0.5;
 
-            // Separate overlapping positions
-            kA.pos.x -= nx * overlap;
-            kA.pos.z -= nz * overlap;
-            kB.pos.x += nx * overlap;
-            kB.pos.z += nz * overlap;
+            // Smooth position separation
+            kA.pos.x -= nx * overlap * 0.65;
+            kA.pos.z -= nz * overlap * 0.65;
+            kB.pos.x += nx * overlap * 0.65;
+            kB.pos.z += nz * overlap * 0.65;
 
-            // Impulse exchange
+            // Elastic impulse
             const relVx = kB.velocity.x - kA.velocity.x;
             const relVz = kB.velocity.y - kA.velocity.y;
-            const relSpeed = relVx * nx + relVz * nz;
+            const vNormal = relVx * nx + relVz * nz;
 
-            if (relSpeed < 0) {
-              const impulse = relSpeed * 0.85;
-              kA.velocity.x += nx * impulse;
-              kA.velocity.y += nz * impulse;
-              kB.velocity.x -= nx * impulse;
-              kB.velocity.y -= nz * impulse;
+            if (vNormal < 0) {
+              const restitution = 0.68;
+              const impulse = -(1 + restitution) * vNormal * 0.5;
 
-              const impactKmh = Math.abs(relSpeed) * KMH_PER_UNIT;
-              if (impactKmh > 12) {
-                // Micro hit-stop
-                kA.hitStopTimer = 0.07;
-                kB.hitStopTimer = 0.07;
+              kA.velocity.x -= nx * impulse;
+              kA.velocity.y -= nz * impulse;
+              kB.velocity.x += nx * impulse;
+              kB.velocity.y += nz * impulse;
 
-                // 3D Sparks at contact midpoint
+              kA.lateralSpeed -= nx * impulse * 0.25;
+              kB.lateralSpeed += nx * impulse * 0.25;
+
+              const impactKmh = Math.abs(vNormal) * KMH_PER_UNIT;
+              if (impactKmh > 10) {
                 const midPos = new THREE.Vector3(
                   (kA.pos.x + kB.pos.x) * 0.5,
-                  (kA.pos.y + kB.pos.y) * 0.5 + 0.5,
+                  (kA.pos.y + kB.pos.y) * 0.5 + 0.4,
                   (kA.pos.z + kB.pos.z) * 0.5
                 );
-                emitCollisionSparks(midPos, 14);
-
-                const isPlayerHit = kA.isPlayer || kB.isPlayer;
-                triggerCrashEffect(isPlayerHit);
+                emitCollisionSparks(midPos, 8);
+                if (kA.isPlayer || kB.isPlayer) {
+                  triggerSmoothCrash(Math.min(1.0, impactKmh / 55));
+                }
               }
             }
           }
@@ -2065,7 +2241,7 @@
       playStep();
     }
 
-    // --- Controls & Input ---
+    // Controls
     const keys = {};
     window.addEventListener('keydown', (e) => {
       keys[e.code] = true;
@@ -2074,29 +2250,42 @@
       }
       if (e.code === 'KeyM') {
         const isSoundOn = engineAudio.toggleMute();
-        hudAudio.textContent = `Sound: ${isSoundOn ? 'ON' : 'OFF'} [M]`;
+        hudAudioBtn.textContent = `🔊 사운드: ${isSoundOn ? 'ON' : 'OFF'} [M]`;
       }
       if (e.code === 'Space' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
-        if (gameState === 'RACING') {
-          playerKart.triggerN2OBooster();
-        }
+        if (gameState === 'RACING') playerKart.triggerN2OBooster();
       }
     });
-    window.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
-    });
+    window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-    // UI Elements
-    const hudPos = document.getElementById('hud-pos');
-    const hudLap = document.getElementById('hud-lap');
-    const hudTime = document.getElementById('hud-time');
-    const hudSpeed = document.getElementById('hud-speed');
+    // UI Hooks
+    const hudPosNum = document.getElementById('hud-pos-num');
+    const hudPosSuffix = document.getElementById('hud-pos-suffix');
+    const hudLapVal = document.getElementById('hud-lap-val');
+    const hudTimeVal = document.getElementById('hud-time-val');
+    const hudSpeedVal = document.getElementById('hud-speed-val');
     const speedBarFill = document.getElementById('speed-bar-fill');
-    const hudAudio = document.getElementById('hud-audio');
+    const cockpitBadge = document.getElementById('cockpit-state-badge');
+    const hudAudioBtn = document.getElementById('hud-audio-btn');
     const startScreen = document.getElementById('start-screen');
     const startBtn = document.getElementById('start-btn');
     const podiumScreen = document.getElementById('podium-screen');
     const podiumRestartBtn = document.getElementById('podium-restart-btn');
+
+    hudAudioBtn.addEventListener('click', () => {
+      const isSoundOn = engineAudio.toggleMute();
+      hudAudioBtn.textContent = `🔊 사운드: ${isSoundOn ? 'ON' : 'OFF'} [M]`;
+    });
+
+    // Theme selector card click handlers
+    document.querySelectorAll('.theme-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.theme-card').forEach((c) => c.classList.remove('active'));
+        card.classList.add('active');
+        const theme = card.getAttribute('data-theme');
+        applyTheme(theme);
+      });
+    });
 
     startBtn.addEventListener('click', () => {
       engineAudio.init();
@@ -2123,10 +2312,9 @@
       const scaleX = (w - 24) / (TRACK_RADIUS_X * 2);
       const scaleZ = (h - 24) / (TRACK_RADIUS_Z * 2);
 
-      // Draw track loop
       mmCtx.beginPath();
       mmCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      mmCtx.lineWidth = 6;
+      mmCtx.lineWidth = 5;
       for (let i = 0; i <= NUM_WAYPOINTS; i++) {
         const wp = waypoints[i % NUM_WAYPOINTS];
         const x = centerX + wp.x * scaleX;
@@ -2136,12 +2324,10 @@
       }
       mmCtx.stroke();
 
-      // Finish line notch
       const startWp = waypoints[0];
       mmCtx.fillStyle = '#ffea00';
       mmCtx.fillRect(centerX + startWp.x * scaleX - 3, centerY + startWp.z * scaleZ - 3, 6, 6);
 
-      // Karts
       allKarts.forEach((kart) => {
         const kx = centerX + kart.pos.x * scaleX;
         const ky = centerY + kart.pos.z * scaleZ;
@@ -2163,7 +2349,6 @@
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
     }
 
-    // --- Update Player ---
     function updatePlayer() {
       let gas = 0;
       let brake = 0;
@@ -2182,7 +2367,6 @@
       playerKart.applyPhysics(gas, brake, steer, drift, boost);
     }
 
-    // --- Smart & Competitive AI with Full Feature Parity ---
     function updateAI(ai) {
       if (gameState !== 'RACING') {
         ai.applyPhysics(0, 0, 0, false, false);
@@ -2199,7 +2383,6 @@
       const norm = new THREE.Vector3(-dir.z, 0, dir.x);
       targetP.addScaledVector(norm, ai.aiOffset);
 
-      // Curvature lookahead for intelligent corner drift
       const turnCheckIdx = (ai.currentWaypointIdx + 6) % totalW;
       const turnDir = waypoints[turnCheckIdx].clone().sub(ai.pos).normalize();
       const currentHeadingVec = new THREE.Vector3(Math.sin(ai.heading), 0, Math.cos(ai.heading));
@@ -2223,50 +2406,40 @@
 
       const aiKmh = Math.max(0, ai.forwardSpeed * KMH_PER_UNIT);
 
-      // AI Drifts intelligently through sharp corners!
       if (Math.abs(angleDiff) > 0.22 && aiKmh > 55) {
         aiDrift = true;
         gas = 0.94;
       }
 
-      // AI ignites N2O booster on straightaways!
       const isStraight = Math.abs(angleDiff) < 0.12 && angleToTurn < 0.25;
       if (isStraight && ai.boosters > 0 && !ai.isBoosting) {
         aiBoost = true;
       }
 
-      // Overtaking / Kart avoidance
       for (const other of allKarts) {
         if (other !== ai && ai.pos.distanceTo(other.pos) < 6.0) {
           const aheadDot = dir.dot(other.pos.clone().sub(ai.pos));
-          if (aheadDot > 1.0) {
-            // Kart right ahead: swerve to open lane
-            ai.aiOffset = ai.aiOffset > 0 ? -3.5 : 3.5;
-          }
+          if (aheadDot > 1.0) ai.aiOffset = ai.aiOffset > 0 ? -3.5 : 3.5;
         }
       }
 
       ai.applyPhysics(gas, brake, steer, aiDrift, aiBoost);
     }
 
-    // --- Dynamic Camera (Enhanced 250 km/h Warp & Rumble Sensation) ---
     let currentFov = 60;
     let cameraShake = new THREE.Vector3();
 
     function updateCamera(playerKmh) {
       const speedNorm = THREE.MathUtils.clamp(playerKmh / 250, 0, 1.2);
 
-      // FOV expands dynamically up to 98+ deg at 250 km/h
       const targetFov = playerKart.isBoosting ? 98 : (60 + speedNorm * 30);
       currentFov = THREE.MathUtils.lerp(currentFov, targetFov, 0.08);
       camera.fov = currentFov;
       camera.updateProjectionMatrix();
 
-      // Camera pull-back distance
       const baseDist = 8.5 + speedNorm * 4.2 + (playerKart.isBoosting ? 2.2 : 0);
       const baseHeight = 3.8 + speedNorm * 0.9;
 
-      // High-speed cockpit rumble above 150 km/h up to 250 km/h
       if (playerKmh > 150) {
         const shakeIntensity = ((playerKmh - 150) / 100) * 0.22;
         cameraShake.set(
@@ -2278,11 +2451,9 @@
         cameraShake.set(0, 0, 0);
       }
 
-      // Add crash kick impulse decay
       cameraCrashKick.multiplyScalar(0.85);
       cameraShake.add(cameraCrashKick);
 
-      // Follow behind kart
       const desiredCamPos = playerKart.pos.clone().add(new THREE.Vector3(
         -Math.sin(playerKart.heading) * baseDist + cameraShake.x,
         baseHeight + cameraShake.y,
@@ -2298,51 +2469,58 @@
       ));
       camera.lookAt(lookTarget);
 
-      // Screen edge warp vignette above 185 km/h
       const screenWarp = document.getElementById('screen-warp-vignette');
       if (screenWarp) {
-        if (playerKart.isBoosting || playerKmh > 185) {
-          screenWarp.style.opacity = '1';
-        } else {
-          screenWarp.style.opacity = '0';
-        }
+        screenWarp.style.opacity = (playerKart.isBoosting || playerKmh > 185) ? '1' : '0';
       }
     }
 
-    // --- HUD Update ---
     function updateHUD() {
       const ranked = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
       const playerRank = ranked.indexOf(playerKart) + 1;
       const rankSuffix = ['st', 'nd', 'rd', 'th'][playerRank - 1] || 'th';
-      hudPos.textContent = `${playerRank}${rankSuffix}`;
+      hudPosNum.textContent = playerRank;
+      hudPosSuffix.textContent = rankSuffix;
 
       const currentLapDisplay = Math.min(playerKart.lap, TOTAL_LAPS);
-      hudLap.textContent = `LAP ${currentLapDisplay}/${TOTAL_LAPS}`;
+      hudLapVal.textContent = currentLapDisplay;
 
       if (gameState === 'RACING') {
         const elapsed = performance.now() - startTime;
         finalTimeStr = formatTime(elapsed);
-        hudTime.textContent = finalTimeStr;
+        hudTimeVal.textContent = finalTimeStr;
       }
 
-      // Speedometer (Scale to 250 km/h)
+      // Speedometer
       const kmh = Math.max(0, Math.round(playerKart.forwardSpeed * KMH_PER_UNIT));
-      hudSpeed.textContent = `${kmh} KM/H`;
+      hudSpeedVal.textContent = kmh;
       if (kmh >= 200) {
-        hudSpeed.style.color = '#ff1744';
-        hudSpeed.style.textShadow = '0 0 15px #ff3d00, 0 0 30px #ff0055, 2px 2px #000';
+        hudSpeedVal.style.color = '#ff1744';
+        hudSpeedVal.style.textShadow = '0 0 15px #ff3d00, 0 0 30px #ff0055';
       } else if (kmh >= 140) {
-        hudSpeed.style.color = '#ff9100';
-        hudSpeed.style.textShadow = '0 0 10px #ff9100, 2px 2px #000';
+        hudSpeedVal.style.color = '#ff9100';
+        hudSpeedVal.style.textShadow = '0 0 10px #ff9100';
       } else {
-        hudSpeed.style.color = '#76ff03';
-        hudSpeed.style.textShadow = '2px 2px 0 #000, -2px -2px 0 #000';
+        hudSpeedVal.style.color = '#76ff03';
+        hudSpeedVal.style.textShadow = 'none';
       }
 
       const barPercent = THREE.MathUtils.clamp((kmh / 250) * 100, 0, 100);
       speedBarFill.style.width = `${barPercent}%`;
 
-      // KartRider Booster Slots UI
+      // Badge status
+      if (playerKart.isBoosting) {
+        cockpitBadge.textContent = '🔥 250 N2O';
+        cockpitBadge.className = 'boost';
+      } else if (playerKart.miniTurboTimer > 0) {
+        cockpitBadge.textContent = '⚡ 200 TURBO';
+        cockpitBadge.className = 'turbo';
+      } else {
+        cockpitBadge.textContent = 'CRUISE';
+        cockpitBadge.className = '';
+      }
+
+      // Booster Slots
       const slot0 = document.getElementById('slot-0');
       const slot1 = document.getElementById('slot-1');
       if (slot0 && slot1) {
@@ -2352,7 +2530,7 @@
         slot1.textContent = playerKart.boosters >= 2 ? '🚀 N2O' : 'EMPTY';
       }
 
-      // Drift Gauge UI
+      // Drift Gauge
       const driftFill = document.getElementById('drift-gauge-fill');
       const driftText = document.getElementById('drift-gauge-text');
       if (driftFill && driftText) {
@@ -2361,27 +2539,9 @@
         driftText.textContent = `${gVal}%`;
       }
 
-      const alertEl = document.getElementById('mini-turbo-alert');
-      if (alertEl) {
-        if (playerKart.isBoosting) {
-          alertEl.textContent = '🔥 N2O BOOSTING! (250 KM/H) 🔥';
-          alertEl.style.color = '#ff1744';
-        } else if (playerKart.miniTurboTimer > 0) {
-          alertEl.textContent = '⚡ MINI-TURBO! (200 KM/H) ⚡';
-          alertEl.style.color = '#00e5ff';
-        } else if (playerKart.boosters > 0) {
-          alertEl.textContent = 'PRESS [SPACE] FOR BOOSTER!';
-          alertEl.style.color = '#ffea00';
-        } else {
-          alertEl.textContent = 'HOLD [SHIFT] TO DRIFT & CHARGE';
-          alertEl.style.color = '#aaa';
-        }
-      }
-
       return kmh;
     }
 
-    // --- Podium Ceremony Sequence (시상대 진입) ---
     function startPodiumCeremony() {
       gameState = 'PODIUM';
       document.getElementById('ui-layer').style.opacity = '0';
@@ -2390,16 +2550,13 @@
 
       const ranked = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
 
-      // Place Karts on 3D Podium
-      // 1st: Gold Pedestal (Height 3.6 + 1.2 = 4.8)
       if (ranked[0]) {
         ranked[0].pos.set(PODIUM_ORIGIN.x, 1.2 + 3.6 + 0.35, PODIUM_ORIGIN.z);
-        ranked[0].heading = Math.PI; // Face forward (+Z direction in world)
+        ranked[0].heading = Math.PI;
         ranked[0].mesh.position.copy(ranked[0].pos);
         ranked[0].mesh.rotation.y = ranked[0].heading;
         ranked[0].mesh.rotation.z = 0;
       }
-      // 2nd: Silver Pedestal (Left, Height 2.4 + 1.2 = 3.6)
       if (ranked[1]) {
         ranked[1].pos.set(PODIUM_ORIGIN.x - 8.5, 1.2 + 2.4 + 0.35, PODIUM_ORIGIN.z - 1.0);
         ranked[1].heading = Math.PI - 0.22;
@@ -2407,7 +2564,6 @@
         ranked[1].mesh.rotation.y = ranked[1].heading;
         ranked[1].mesh.rotation.z = 0;
       }
-      // 3rd: Bronze Pedestal (Right, Height 1.4 + 1.2 = 2.6)
       if (ranked[2]) {
         ranked[2].pos.set(PODIUM_ORIGIN.x + 8.5, 1.2 + 1.4 + 0.35, PODIUM_ORIGIN.z - 1.0);
         ranked[2].heading = Math.PI + 0.22;
@@ -2415,16 +2571,14 @@
         ranked[2].mesh.rotation.y = ranked[2].heading;
         ranked[2].mesh.rotation.z = 0;
       }
-      // 4th: Ground Beside Stage (Far Right)
       if (ranked[3]) {
         ranked[3].pos.set(PODIUM_ORIGIN.x + 16.0, 1.2 + 0.08 + 0.35, PODIUM_ORIGIN.z - 2.5);
         ranked[3].heading = Math.PI + 0.35;
         ranked[3].mesh.position.copy(ranked[3].pos);
         ranked[3].mesh.rotation.y = ranked[3].heading;
-        ranked[3].mesh.rotation.z = -0.08; // Sulking lean
+        ranked[3].mesh.rotation.z = -0.08;
       }
 
-      // Build Standings Board
       const standingsContainer = document.getElementById('podium-standings');
       standingsContainer.innerHTML = '';
       const medals = ['🥇 1st', '🥈 2nd', '🥉 3rd', '4th'];
@@ -2445,7 +2599,6 @@
       podiumScreen.style.display = 'flex';
     }
 
-    // --- Main Loop ---
     resetRace();
 
     let podiumOrbitAngle = Math.PI;
@@ -2456,17 +2609,13 @@
       const dt = 1 / 60;
       const nowTime = performance.now() * 0.001;
 
-      // Update Skidmarks & Sparks
       skidmarkManager.update(dt);
       updateSparks(dt);
       updateDriftParticles();
 
-      // Crash popup timer
       if (crashPopupTimer > 0) {
         crashPopupTimer -= dt;
-        if (crashPopupTimer <= 0 && crashPopupEl) {
-          crashPopupEl.classList.remove('active');
-        }
+        if (crashPopupTimer <= 0 && crashPopupEl) crashPopupEl.classList.remove('active');
       }
 
       if (gameState === 'RACING' || gameState === 'COUNTDOWN') {
@@ -2486,29 +2635,23 @@
         );
         camera.lookAt(playerKart.pos.x, 1.5, playerKart.pos.z);
       } else if (gameState === 'PODIUM') {
-        // Cinematic camera orbit around 3D Podium Stage
         podiumOrbitAngle += dt * 0.28;
-        const camDist = 24.0;
-        const camH = 6.2;
         camera.position.set(
-          PODIUM_ORIGIN.x + Math.sin(podiumOrbitAngle) * camDist,
-          PODIUM_ORIGIN.y + camH,
-          PODIUM_ORIGIN.z + Math.cos(podiumOrbitAngle) * camDist
+          PODIUM_ORIGIN.x + Math.sin(podiumOrbitAngle) * 24.0,
+          PODIUM_ORIGIN.y + 6.2,
+          PODIUM_ORIGIN.z + Math.cos(podiumOrbitAngle) * 24.0
         );
         camera.lookAt(PODIUM_ORIGIN.x, PODIUM_ORIGIN.y + 3.8, PODIUM_ORIGIN.z);
 
-        // Spin golden trophy
         trophyGroup.rotation.y += dt * 2.2;
         trophyGroup.position.y = 1.2 + 3.6 + 2.8 + Math.sin(nowTime * 3) * 0.25;
 
-        // Animate 1st place kart suspension bounce (joyful hop)
         const ranked = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
         if (ranked[0]) {
           const hop = Math.abs(Math.sin(nowTime * 5)) * 0.35;
           ranked[0].mesh.position.y = (1.2 + 3.6 + 0.35) + hop;
         }
 
-        // Update Confetti
         updateConfetti(dt, nowTime);
       }
 
@@ -2516,19 +2659,10 @@
 
       if (gameState === 'RACING' || gameState === 'COUNTDOWN') {
         updateCamera(playerKmh);
-      }
-
-      // Speed air stream particle effect
-      if (gameState === 'RACING' || gameState === 'COUNTDOWN') {
         updateSpeedParticles(playerKmh, playerKart.pos, playerKart.heading);
-      } else {
-        speedMat.opacity = 0;
-      }
-
-      // WebAudio update
-      if (gameState === 'RACING' || gameState === 'COUNTDOWN') {
         engineAudio.update(playerKmh);
       } else {
+        speedMat.opacity = 0;
         engineAudio.update(0);
       }
 
@@ -2539,7 +2673,6 @@
 
     animate();
 
-    // Window Resize Handler
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
