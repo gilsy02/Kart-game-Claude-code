@@ -41,6 +41,58 @@
       z-index: 10;
     }
 
+    /* Language Switcher Buttons */
+    .lang-switcher {
+      display: inline-flex;
+      background: rgba(10, 16, 30, 0.85);
+      border: 2px solid rgba(255, 215, 0, 0.45);
+      border-radius: 12px;
+      padding: 3px;
+      gap: 4px;
+      pointer-events: auto;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    }
+    .lang-btn {
+      background: transparent;
+      border: none;
+      color: #99aacc;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      letter-spacing: 0.5px;
+    }
+    .lang-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .lang-btn.active {
+      background: linear-gradient(135deg, #ffd700, #ff9100);
+      color: #0b101f;
+      box-shadow: 0 2px 10px rgba(255, 215, 0, 0.5);
+    }
+
+    #hud-top-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .start-lang-row {
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .podium-lang-row {
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: center;
+    }
+
     /* Top Bar: Minimalist Sleek Ribbon */
     #hud-top-bar {
       position: absolute;
@@ -519,14 +571,21 @@
     <!-- Top Header Bar -->
     <div id="hud-top-bar">
       <div id="hud-rank-card">
-        <span id="hud-pos-num">1</span><span id="hud-pos-suffix">st</span>
+        <span id="hud-pos-num">1</span><span id="hud-pos-suffix">위</span>
       </div>
       <div id="hud-center-pill">
-        <span class="hud-lap-text">LAP <b id="hud-lap-val">1</b>/3</span>
+        <span class="hud-lap-text"><span id="hud-lap-lbl">LAP</span> <b id="hud-lap-val">1</b>/3</span>
         <span class="hud-divider">|</span>
         <span class="hud-time-text" id="hud-time-val">00:00.00</span>
       </div>
-      <div id="hud-audio-btn">🔊 사운드 [M]</div>
+      <div id="hud-top-right">
+        <div class="lang-switcher">
+          <button class="lang-btn active" data-lang="kr">🇰🇷 KR</button>
+          <button class="lang-btn" data-lang="us">🇺🇸 US</button>
+          <button class="lang-btn" data-lang="mx">🇲🇽 MX</button>
+        </div>
+        <div id="hud-audio-btn">🔊 사운드: ON [M]</div>
+      </div>
     </div>
 
     <!-- Bottom-Left Integrated Cockpit -->
@@ -569,8 +628,15 @@
 
   <!-- Start Screen with 3 Interactive Track Cards -->
   <div id="start-screen" class="screen">
+    <div class="start-lang-row">
+      <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="kr">🇰🇷 한국어</button>
+        <button class="lang-btn" data-lang="us">🇺🇸 English</button>
+        <button class="lang-btn" data-lang="mx">🇲🇽 Español</button>
+      </div>
+    </div>
     <div class="title">MARIO KART 3D</div>
-    <div class="subtitle">KartRider Grand Prix Edition</div>
+    <div class="subtitle" id="start-subtitle">카트라이더 그랑프리 에디션</div>
 
     <div class="theme-select-section">
       <div class="theme-select-title">🏁 레이싱 트랙 배경 테마를 선택하세요 🏁</div>
@@ -603,9 +669,16 @@
   <!-- Podium Ceremony Screen -->
   <div id="podium-screen">
     <div class="podium-card">
+      <div class="podium-lang-row">
+        <div class="lang-switcher">
+          <button class="lang-btn active" data-lang="kr">🇰🇷 KR</button>
+          <button class="lang-btn" data-lang="us">🇺🇸 US</button>
+          <button class="lang-btn" data-lang="mx">🇲🇽 MX</button>
+        </div>
+      </div>
       <div class="ceremony-title">
         <span>🏆</span>
-        <span>시상식 & 결과 발표</span>
+        <span id="ceremony-title-text">시상식 & 결과 발표</span>
         <span>🏆</span>
       </div>
       <div class="standings-list" id="podium-standings"></div>
@@ -619,6 +692,111 @@
 
     // --- State & Constants ---
     let gameState = 'START'; // 'START', 'COUNTDOWN', 'RACING', 'PODIUM'
+    let currentLang = 'kr';
+    let currentRankedKarts = [];
+
+    // Multilingual Dictionary (KR / US / MX)
+    const I18N = {
+      kr: {
+        title: 'MARIO KART 3D',
+        subtitle: '카트라이더 그랑프리 에디션',
+        selectTheme: '🏁 레이싱 트랙 배경 테마를 선택하세요 🏁',
+        themes: {
+          witch: {
+            name: '마녀 도시',
+            desc: '보랏빛 안개와 달빛, 고딕 첨탑과 호박등이 감싸는 신비로운 할로윈 마녀의 밤'
+          },
+          nyc: {
+            name: '뉴욕 도심',
+            desc: '화려한 마천루 빌딩 숲과 창문 불빛, 네온사인이 번쩍이는 한밤의 메트로폴리스'
+          },
+          joseon: {
+            name: '조선시대',
+            desc: '노을빛 하늘과 청사초롱, 기와 한옥 누각과 돌담길이 어우러진 고궁 레이스'
+          }
+        },
+        startBtnReady: '게임 시작 (START RACE)',
+        startBtnLoading: '로딩 중...',
+        controlsHint: '<strong>[↑] / [W]</strong> 가속 (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> 감속 / 후진 &nbsp;|&nbsp; <strong>[←][→]</strong> 조향<br><strong>[SHIFT]</strong> 드리프트 & 순간부스터 (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O 부스터 점화 (250 km/h)',
+        lapLabel: 'LAP',
+        soundBtn: (on) => `🔊 사운드: ${on ? 'ON' : 'OFF'} [M]`,
+        driftLabel: 'DRIFT GAUGE',
+        cockpitHint: '[SHIFT] 드리프트 | [SPACE] 250km/h 부스터',
+        emptySlot: '비어있음',
+        rankSuffix: ['위', '위', '위', '위'],
+        goText: '출발!',
+        podiumTitle: '시상식 & 결과 발표',
+        medals: ['🥇 1위 (금메달)', '🥈 2위 (은메달)', '🥉 3위 (동메달)', '4위 (박수)'],
+        youTag: '(나)',
+        restartBtn: '다시 달리기 (RACE AGAIN)'
+      },
+      us: {
+        title: 'MARIO KART 3D',
+        subtitle: 'KartRider Grand Prix Edition',
+        selectTheme: '🏁 Select Track Background Theme 🏁',
+        themes: {
+          witch: {
+            name: 'Witch City',
+            desc: 'Mystic Halloween witch night with violet fog, moonlight, gothic spires and jack-o\'-lanterns'
+          },
+          nyc: {
+            name: 'NYC Metropolis',
+            desc: 'Midnight metropolis with glittering skyscraper towers, illuminated windows and neon signs'
+          },
+          joseon: {
+            name: 'Joseon Dynasty',
+            desc: 'Royal palace circuit surrounded by sunset skies, silk lanterns, hanok pavilions and stone walls'
+          }
+        },
+        startBtnReady: 'START RACE',
+        startBtnLoading: 'Loading...',
+        controlsHint: '<strong>[↑] / [W]</strong> Accelerate (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> Brake / Reverse &nbsp;|&nbsp; <strong>[←][→]</strong> Steer<br><strong>[SHIFT]</strong> Drift & Mini-Turbo (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O Boost (250 km/h)',
+        lapLabel: 'LAP',
+        soundBtn: (on) => `🔊 Sound: ${on ? 'ON' : 'OFF'} [M]`,
+        driftLabel: 'DRIFT GAUGE',
+        cockpitHint: '[SHIFT] Drift | [SPACE] 250km/h Nitro Boost',
+        emptySlot: 'EMPTY',
+        rankSuffix: ['st', 'nd', 'rd', 'th'],
+        goText: 'GO!',
+        podiumTitle: 'VICTORY CEREMONY & RESULTS',
+        medals: ['🥇 1st (Gold)', '🥈 2nd (Silver)', '🥉 3rd (Bronze)', '4th (Applause)'],
+        youTag: '(YOU)',
+        restartBtn: 'RACE AGAIN'
+      },
+      mx: {
+        title: 'MARIO KART 3D',
+        subtitle: 'Edición Gran Premio KartRider',
+        selectTheme: '🏁 Selecciona el Tema de la Pista 🏁',
+        themes: {
+          witch: {
+            name: 'Ciudad Bruja',
+            desc: 'Noche mística de brujas con niebla violeta, luna, agujas góticas y calabazas brillantes'
+          },
+          nyc: {
+            name: 'Centro de NY',
+            desc: 'Metrópolis de medianoche con rascacielos relucientes, luces de ventanas y letreros de neón'
+          },
+          joseon: {
+            name: 'Dinastía Joseon',
+            desc: 'Circuito del palacio real con cielo crepuscular, faroles de seda, hanok tradicional y muros de piedra'
+          }
+        },
+        startBtnReady: 'INICIAR CARRERA',
+        startBtnLoading: 'Cargando...',
+        controlsHint: '<strong>[↑] / [W]</strong> Acelerar (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> Freno / Reversa &nbsp;|&nbsp; <strong>[←][→]</strong> Dirección<br><strong>[SHIFT]</strong> Derrape y Mini-Turbo (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> Impulso Nitro N2O (250 km/h)',
+        lapLabel: 'VUELTA',
+        soundBtn: (on) => `🔊 Sonido: ${on ? 'ON' : 'OFF'} [M]`,
+        driftLabel: 'INDICADOR DERRAPE',
+        cockpitHint: '[SHIFT] Derrape | [SPACE] 250km/h Nitro Turbo',
+        emptySlot: 'VACÍO',
+        rankSuffix: ['.°', '.°', '.°', '.°'],
+        goText: '¡VAMOS!',
+        podiumTitle: 'CEREMONIA DE VICTORIA Y RESULTADOS',
+        medals: ['🥇 1.° (Oro)', '🥈 2.° (Plata)', '🥉 3.° (Bronce)', '4.° (Aplausos)'],
+        youTag: '(TÚ)',
+        restartBtn: 'VOLVER A CORRER'
+      }
+    };
     let currentTheme = 'witch';
     let startTime = 0;
     let finalTimeStr = '';
@@ -1232,10 +1410,11 @@
     p3Mesh.position.set(8.5, 1.2 + 0.7, -1.0);
     podiumGroup.add(p3Mesh);
 
-    const p4Geo = new THREE.CylinderGeometry(2.2, 2.2, 0.08, 20);
-    const p4Mat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.8 });
+    // 4th place floor marker on diagonal dais (front-right of podium)
+    const p4Geo = new THREE.CylinderGeometry(2.2, 2.4, 0.08, 24);
+    const p4Mat = new THREE.MeshStandardMaterial({ color: 0x2e354f, roughness: 0.6, metalness: 0.3 });
     const p4Mesh = new THREE.Mesh(p4Geo, p4Mat);
-    p4Mesh.position.set(16.0, 1.2 + 0.04, -2.5);
+    p4Mesh.position.set(12.5, 1.2 + 0.04, -6.5);
     podiumGroup.add(p4Mesh);
 
     const trophyGroup = new THREE.Group();
@@ -1248,8 +1427,188 @@
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.9;
     trophyGroup.add(rim);
-    trophyGroup.position.set(0, 1.2 + 3.6 + 2.8, 0);
+    trophyGroup.position.set(0, 1.2 + 3.6 + 3.5, 0);
     podiumGroup.add(trophyGroup);
+
+    // --- 3D Podium Characters (1st/2nd/3rd with Medals + 4th Standing Diagonally Clapping) ---
+    function createPodiumCharacter(rank) {
+      const group = new THREE.Group();
+      const characterRoot = new THREE.Group();
+      group.add(characterRoot);
+
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, roughness: 0.35, metalness: 0.25 });
+      const whiteTrimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.1 });
+      const darkTrimMat = new THREE.MeshStandardMaterial({ color: 0x161c2c, roughness: 0.6 });
+      const gloveMat = new THREE.MeshStandardMaterial({ color: 0xf5f7fa, roughness: 0.25 });
+      const visorMat = new THREE.MeshStandardMaterial({ color: 0x0c1220, metalness: 0.95, roughness: 0.08 });
+
+      // Torso & Racing Suit
+      const torsoGroup = new THREE.Group();
+      torsoGroup.position.y = 1.05;
+      characterRoot.add(torsoGroup);
+
+      const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 1.0, 16), suitMat);
+      bodyMesh.castShadow = true;
+      torsoGroup.add(bodyMesh);
+
+      const stripeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.96), whiteTrimMat);
+      stripeMesh.position.set(0, 0, 0.58);
+      torsoGroup.add(stripeMesh);
+
+      const beltMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.16, 16), darkTrimMat);
+      beltMesh.position.y = -0.42;
+      torsoGroup.add(beltMesh);
+
+      // Legs & Boots
+      const legGeo = new THREE.CylinderGeometry(0.19, 0.18, 0.72, 12);
+      const legL = new THREE.Mesh(legGeo, suitMat);
+      legL.position.set(-0.3, 0.42, 0);
+      legL.castShadow = true;
+      characterRoot.add(legL);
+
+      const legR = new THREE.Mesh(legGeo, suitMat);
+      legR.position.set(0.3, 0.42, 0);
+      legR.castShadow = true;
+      characterRoot.add(legR);
+
+      const bootGeo = new THREE.BoxGeometry(0.34, 0.24, 0.52);
+      const bootL = new THREE.Mesh(bootGeo, darkTrimMat);
+      bootL.position.set(-0.3, 0.12, 0.08);
+      characterRoot.add(bootL);
+
+      const bootR = new THREE.Mesh(bootGeo, darkTrimMat);
+      bootR.position.set(0.3, 0.12, 0.08);
+      characterRoot.add(bootR);
+
+      // Head & Helmet
+      const headGroup = new THREE.Group();
+      headGroup.position.y = 1.98;
+      characterRoot.add(headGroup);
+
+      const helmetMesh = new THREE.Mesh(new THREE.SphereGeometry(0.68, 24, 20), suitMat);
+      helmetMesh.castShadow = true;
+      headGroup.add(helmetMesh);
+
+      const helmStripe = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.72, 1.4), whiteTrimMat);
+      helmStripe.position.set(0, 0.06, 0);
+      headGroup.add(helmStripe);
+
+      const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.32, 0.48), visorMat);
+      visorMesh.position.set(0, -0.02, 0.52);
+      headGroup.add(visorMesh);
+
+      const visorShine = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.5, 0.08),
+        new THREE.MeshBasicMaterial({ color: 0x80d8ff, transparent: true, opacity: 0.85 })
+      );
+      visorShine.position.set(0, 0.06, 0.77);
+      headGroup.add(visorShine);
+
+      // Arms & Hands (pivot at shoulder)
+      const leftArmGroup = new THREE.Group();
+      leftArmGroup.position.set(-0.68, 1.42, 0);
+      characterRoot.add(leftArmGroup);
+
+      const rightArmGroup = new THREE.Group();
+      rightArmGroup.position.set(0.68, 1.42, 0);
+      characterRoot.add(rightArmGroup);
+
+      const armGeo = new THREE.CylinderGeometry(0.16, 0.15, 0.62, 12);
+      armGeo.translate(0, -0.31, 0);
+
+      const armL = new THREE.Mesh(armGeo, suitMat);
+      armL.castShadow = true;
+      leftArmGroup.add(armL);
+
+      const armR = new THREE.Mesh(armGeo, suitMat);
+      armR.castShadow = true;
+      rightArmGroup.add(armR);
+
+      const handGeo = new THREE.SphereGeometry(0.2, 12, 12);
+      const handL = new THREE.Mesh(handGeo, gloveMat);
+      handL.position.set(0, -0.62, 0);
+      leftArmGroup.add(handL);
+
+      const handR = new THREE.Mesh(handGeo, gloveMat);
+      handR.position.set(0, -0.62, 0);
+      rightArmGroup.add(handR);
+
+      // Medals for Rank 1, 2, 3!
+      let medalGroup = null;
+      if (rank <= 3) {
+        medalGroup = new THREE.Group();
+        const ribbonColor = rank === 1 ? 0xd50000 : (rank === 2 ? 0x1565c0 : 0x2e7d32);
+        const ribbonMat = new THREE.MeshStandardMaterial({ color: ribbonColor, roughness: 0.5 });
+
+        // V-shaped Ribbon around neck
+        const r1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.72, 0.04), ribbonMat);
+        r1.position.set(-0.16, 0.16, 0.5);
+        r1.rotation.z = -0.35;
+        medalGroup.add(r1);
+
+        const r2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.72, 0.04), ribbonMat);
+        r2.position.set(0.16, 0.16, 0.5);
+        r2.rotation.z = 0.35;
+        medalGroup.add(r2);
+
+        // Shiny Metal Disc
+        const mColors = {
+          1: { col: 0xffd700, metal: 0.95, rough: 0.12, emissive: 0x332500 },
+          2: { col: 0xe0e6ed, metal: 0.92, rough: 0.18, emissive: 0x111520 },
+          3: { col: 0xcd7f32, metal: 0.88, rough: 0.26, emissive: 0x221105 }
+        };
+        const mc = mColors[rank];
+        const mDiscMat = new THREE.MeshStandardMaterial({
+          color: mc.col,
+          metalness: mc.metal,
+          roughness: mc.rough,
+          emissive: mc.emissive
+        });
+        const mDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.08, 28), mDiscMat);
+        mDisc.rotation.x = Math.PI / 2;
+        mDisc.position.set(0, -0.16, 0.56);
+        medalGroup.add(mDisc);
+
+        const mRim = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.035, 10, 24), mDiscMat);
+        mRim.position.set(0, -0.16, 0.61);
+        medalGroup.add(mRim);
+
+        const mStar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.04), whiteTrimMat);
+        mStar.position.set(0, -0.16, 0.62);
+        mStar.rotation.z = Math.PI / 4;
+        medalGroup.add(mStar);
+
+        torsoGroup.add(medalGroup);
+      }
+
+      podiumGroup.add(group);
+      group.visible = false;
+
+      function updateRacer(colorHex) {
+        const hex = typeof colorHex === 'string' ? parseInt(colorHex.replace('#', '0x'), 16) : colorHex;
+        suitMat.color.setHex(hex);
+      }
+
+      return {
+        group,
+        characterRoot,
+        torsoGroup,
+        headGroup,
+        leftArmGroup,
+        rightArmGroup,
+        medalGroup,
+        rank,
+        baseY: 0,
+        updateRacer
+      };
+    }
+
+    const podiumCharacters = [
+      createPodiumCharacter(1),
+      createPodiumCharacter(2),
+      createPodiumCharacter(3),
+      createPodiumCharacter(4)
+    ];
 
     const CONFETTI_COUNT = 240;
     const confettiGeo = new THREE.BufferGeometry();
@@ -1643,8 +2002,11 @@
     function checkAllModelsDone() {
       modelsLoadedOrFailed++;
       if (modelsLoadedOrFailed >= modelsToLoadCount) {
-        startBtn.disabled = false;
-        startBtn.textContent = 'START RACE';
+        const btn = document.getElementById('start-btn');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = I18N[currentLang].startBtnReady;
+        }
       }
     }
 
@@ -2182,7 +2544,98 @@
       }
     }
 
+    function setLanguage(lang) {
+      if (!I18N[lang]) return;
+      currentLang = lang;
+      const dict = I18N[lang];
+
+      // Update all language button styles
+      document.querySelectorAll('.lang-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+      });
+
+      // Start screen
+      const subTitleEl = document.getElementById('start-subtitle');
+      if (subTitleEl) subTitleEl.textContent = dict.subtitle;
+      const themeTitleEl = document.querySelector('.theme-select-title');
+      if (themeTitleEl) themeTitleEl.textContent = dict.selectTheme;
+
+      const witchCard = document.querySelector('.theme-card[data-theme="witch"]');
+      if (witchCard) {
+        witchCard.querySelector('.theme-name').textContent = dict.themes.witch.name;
+        witchCard.querySelector('.theme-desc').textContent = dict.themes.witch.desc;
+      }
+      const nycCard = document.querySelector('.theme-card[data-theme="nyc"]');
+      if (nycCard) {
+        nycCard.querySelector('.theme-name').textContent = dict.themes.nyc.name;
+        nycCard.querySelector('.theme-desc').textContent = dict.themes.nyc.desc;
+      }
+      const joseonCard = document.querySelector('.theme-card[data-theme="joseon"]');
+      if (joseonCard) {
+        joseonCard.querySelector('.theme-name').textContent = dict.themes.joseon.name;
+        joseonCard.querySelector('.theme-desc').textContent = dict.themes.joseon.desc;
+      }
+
+      if (startBtn) {
+        if (!startBtn.disabled) startBtn.textContent = dict.startBtnReady;
+        else startBtn.textContent = dict.startBtnLoading;
+      }
+
+      const hintEl = document.querySelector('.controls-hint');
+      if (hintEl) hintEl.innerHTML = dict.controlsHint;
+
+      // HUD
+      const lapLbl = document.getElementById('hud-lap-lbl');
+      if (lapLbl) lapLbl.textContent = dict.lapLabel;
+      const isSoundOn = !engineAudio.muted;
+      hudAudioBtn.textContent = dict.soundBtn(isSoundOn);
+
+      const driftLbl = document.querySelector('.drift-gauge-header span:first-child');
+      if (driftLbl) driftLbl.textContent = dict.driftLabel;
+
+      const cockHint = document.getElementById('cockpit-hint-text');
+      if (cockHint) cockHint.textContent = dict.cockpitHint;
+
+      // Podium Screen
+      const ceremonyTitleEl = document.getElementById('ceremony-title-text');
+      if (ceremonyTitleEl) ceremonyTitleEl.textContent = dict.podiumTitle;
+      if (podiumRestartBtn) podiumRestartBtn.textContent = dict.restartBtn;
+
+      if (gameState === 'PODIUM') {
+        renderPodiumStandings();
+      }
+      updateHUD();
+    }
+
+    function renderPodiumStandings() {
+      const standingsContainer = document.getElementById('podium-standings');
+      if (!standingsContainer || !currentRankedKarts.length) return;
+      standingsContainer.innerHTML = '';
+      const dict = I18N[currentLang];
+      const medals = dict.medals;
+
+      currentRankedKarts.forEach((k, idx) => {
+        const row = document.createElement('div');
+        row.className = `standing-row rank-${idx + 1} ${k.isPlayer ? 'is-player' : ''}`;
+        const timeDisplay = k.finishTime > 0 ? formatTime(k.finishTime) : (idx === 0 ? finalTimeStr : '+2.45s');
+        const playerTag = k.isPlayer ? ` ${dict.youTag}` : '';
+
+        row.innerHTML = `
+          <div class="standing-rank" style="color: ${idx === 0 ? '#ffd700' : (idx === 1 ? '#c0c0c0' : (idx === 2 ? '#cd7f32' : '#aaa'))}">${medals[idx]}</div>
+          <div class="standing-name" style="color: ${k.kartColor}">${k.name}${playerTag}</div>
+          <div class="standing-time">${timeDisplay}</div>
+        `;
+        standingsContainer.appendChild(row);
+      });
+    }
+
     function resetRace() {
+      allKarts.forEach((k) => {
+        k.mesh.visible = true;
+      });
+      podiumCharacters.forEach((c) => {
+        c.group.visible = false;
+      });
       allKarts.forEach((k, idx) => k.setGridPosition(idx));
       startTime = 0;
       finalTimeStr = '00:00.00';
@@ -2210,7 +2663,7 @@
           step--;
           setTimeout(playStep, 1000);
         } else if (step === 0) {
-          countdownText.textContent = 'GO!';
+          countdownText.textContent = I18N[currentLang].goText;
           countdownText.className = 'countdown-num go';
           step--;
           gameState = 'RACING';
@@ -2233,7 +2686,7 @@
       }
       if (e.code === 'KeyM') {
         const isSoundOn = engineAudio.toggleMute();
-        hudAudioBtn.textContent = `🔊 사운드: ${isSoundOn ? 'ON' : 'OFF'} [M]`;
+        hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
       }
       if (e.code === 'Space' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
         if (gameState === 'RACING') playerKart.triggerN2OBooster();
@@ -2257,8 +2710,20 @@
 
     hudAudioBtn.addEventListener('click', () => {
       const isSoundOn = engineAudio.toggleMute();
-      hudAudioBtn.textContent = `🔊 사운드: ${isSoundOn ? 'ON' : 'OFF'} [M]`;
+      hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
     });
+
+    // Language switcher click handlers
+    document.querySelectorAll('.lang-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const lang = btn.getAttribute('data-lang');
+        setLanguage(lang);
+      });
+    });
+
+    // Initialize default language
+    setLanguage('kr');
 
     // Theme selector card click handlers
     document.querySelectorAll('.theme-card').forEach((card) => {
@@ -2461,7 +2926,8 @@
     function updateHUD() {
       const ranked = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
       const playerRank = ranked.indexOf(playerKart) + 1;
-      const rankSuffix = ['st', 'nd', 'rd', 'th'][playerRank - 1] || 'th';
+      const dict = I18N[currentLang];
+      const rankSuffix = dict.rankSuffix[playerRank - 1] || dict.rankSuffix[3];
       hudPosNum.textContent = playerRank;
       hudPosSuffix.textContent = rankSuffix;
 
@@ -2508,9 +2974,9 @@
       const slot1 = document.getElementById('slot-1');
       if (slot0 && slot1) {
         slot0.className = 'booster-slot' + (playerKart.boosters >= 1 ? ' ready' : '');
-        slot0.textContent = playerKart.boosters >= 1 ? '🚀 N2O' : 'EMPTY';
+        slot0.textContent = playerKart.boosters >= 1 ? '🚀 N2O' : dict.emptySlot;
         slot1.className = 'booster-slot' + (playerKart.boosters >= 2 ? ' ready' : '');
-        slot1.textContent = playerKart.boosters >= 2 ? '🚀 N2O' : 'EMPTY';
+        slot1.textContent = playerKart.boosters >= 2 ? '🚀 N2O' : dict.emptySlot;
       }
 
       // Drift Gauge
@@ -2532,53 +2998,50 @@
       engineAudio.playVictoryFanfare();
 
       const ranked = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
+      currentRankedKarts = ranked;
 
-      if (ranked[0]) {
-        ranked[0].pos.set(PODIUM_ORIGIN.x, 1.2 + 3.6 + 0.35, PODIUM_ORIGIN.z);
-        ranked[0].heading = Math.PI;
-        ranked[0].mesh.position.copy(ranked[0].pos);
-        ranked[0].mesh.rotation.y = ranked[0].heading;
-        ranked[0].mesh.rotation.z = 0;
-      }
-      if (ranked[1]) {
-        ranked[1].pos.set(PODIUM_ORIGIN.x - 8.5, 1.2 + 2.4 + 0.35, PODIUM_ORIGIN.z - 1.0);
-        ranked[1].heading = Math.PI - 0.22;
-        ranked[1].mesh.position.copy(ranked[1].pos);
-        ranked[1].mesh.rotation.y = ranked[1].heading;
-        ranked[1].mesh.rotation.z = 0;
-      }
-      if (ranked[2]) {
-        ranked[2].pos.set(PODIUM_ORIGIN.x + 8.5, 1.2 + 1.4 + 0.35, PODIUM_ORIGIN.z - 1.0);
-        ranked[2].heading = Math.PI + 0.22;
-        ranked[2].mesh.position.copy(ranked[2].pos);
-        ranked[2].mesh.rotation.y = ranked[2].heading;
-        ranked[2].mesh.rotation.z = 0;
-      }
-      if (ranked[3]) {
-        ranked[3].pos.set(PODIUM_ORIGIN.x + 16.0, 1.2 + 0.08 + 0.35, PODIUM_ORIGIN.z - 2.5);
-        ranked[3].heading = Math.PI + 0.35;
-        ranked[3].mesh.position.copy(ranked[3].pos);
-        ranked[3].mesh.rotation.y = ranked[3].heading;
-        ranked[3].mesh.rotation.z = -0.08;
-      }
-
-      const standingsContainer = document.getElementById('podium-standings');
-      standingsContainer.innerHTML = '';
-      const medals = ['🥇 1st', '🥈 2nd', '🥉 3rd', '4th'];
-
-      ranked.forEach((k, idx) => {
-        const row = document.createElement('div');
-        row.className = `standing-row rank-${idx + 1} ${k.isPlayer ? 'is-player' : ''}`;
-        const timeDisplay = k.finishTime > 0 ? formatTime(k.finishTime) : (idx === 0 ? finalTimeStr : '+2.45s');
-
-        row.innerHTML = `
-          <div class="standing-rank" style="color: ${idx === 0 ? '#ffd700' : (idx === 1 ? '#c0c0c0' : (idx === 2 ? '#cd7f32' : '#aaa'))}">${medals[idx]}</div>
-          <div class="standing-name" style="color: ${k.kartColor}">${k.name} ${k.isPlayer ? '(YOU)' : ''}</div>
-          <div class="standing-time">${timeDisplay}</div>
-        `;
-        standingsContainer.appendChild(row);
+      // Hide driving karts during podium ceremony so 3D characters take center stage
+      allKarts.forEach((k) => {
+        k.mesh.visible = false;
       });
 
+      // Position 3D characters directly on podium with medals + 4th standing diagonally clapping
+      ranked.forEach((k, idx) => {
+        const char = podiumCharacters[idx];
+        if (!char) return;
+        char.updateRacer(k.kartColor);
+        char.group.visible = true;
+
+        if (idx === 0) {
+          // 1st place: High gold tier, facing front
+          char.group.position.set(0, 1.2 + 3.6, 0);
+          char.baseY = 1.2 + 3.6;
+          char.characterRoot.rotation.y = Math.PI;
+          char.headGroup.rotation.x = 0;
+        } else if (idx === 1) {
+          // 2nd place: Silver tier on left
+          char.group.position.set(-8.5, 1.2 + 2.4, -1.0);
+          char.baseY = 1.2 + 2.4;
+          char.characterRoot.rotation.y = Math.PI - 0.25;
+          char.headGroup.rotation.x = 0;
+        } else if (idx === 2) {
+          // 3rd place: Bronze tier on right
+          char.group.position.set(8.5, 1.2 + 1.4, -1.0);
+          char.baseY = 1.2 + 1.4;
+          char.characterRoot.rotation.y = Math.PI + 0.25;
+          char.headGroup.rotation.x = 0;
+        } else if (idx === 3) {
+          // 4th place: Standing diagonally in front-right floor, looking up at winners, clapping!
+          char.group.position.set(12.5, 1.2, -6.5);
+          char.baseY = 1.2;
+          // Face directly towards 1st place center (0, 4.8, 0)
+          char.characterRoot.rotation.y = Math.atan2(-12.5, 6.5);
+          // Tilt head upwards to gaze at 1st place on the podium
+          char.headGroup.rotation.x = -0.42;
+        }
+      });
+
+      renderPodiumStandings();
       podiumScreen.style.display = 'flex';
     }
 
@@ -2615,22 +3078,56 @@
         );
         camera.lookAt(playerKart.pos.x, 1.5, playerKart.pos.z);
       } else if (gameState === 'PODIUM') {
-        podiumOrbitAngle += dt * 0.28;
+        podiumOrbitAngle += dt * 0.24;
         camera.position.set(
-          PODIUM_ORIGIN.x + Math.sin(podiumOrbitAngle) * 24.0,
-          PODIUM_ORIGIN.y + 6.2,
-          PODIUM_ORIGIN.z + Math.cos(podiumOrbitAngle) * 24.0
+          PODIUM_ORIGIN.x + Math.sin(podiumOrbitAngle) * 23.0,
+          PODIUM_ORIGIN.y + 6.0,
+          PODIUM_ORIGIN.z + Math.cos(podiumOrbitAngle) * 23.0
         );
-        camera.lookAt(PODIUM_ORIGIN.x, PODIUM_ORIGIN.y + 3.8, PODIUM_ORIGIN.z);
+        camera.lookAt(PODIUM_ORIGIN.x + 1.5, PODIUM_ORIGIN.y + 3.2, PODIUM_ORIGIN.z - 1.5);
 
         trophyGroup.rotation.y += dt * 2.2;
-        trophyGroup.position.y = 1.2 + 3.6 + 2.8 + Math.sin(nowTime * 3) * 0.25;
+        trophyGroup.position.y = 1.2 + 3.6 + 3.5 + Math.sin(nowTime * 3) * 0.25;
 
-        const ranked = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
-        if (ranked[0]) {
-          const hop = Math.abs(Math.sin(nowTime * 5)) * 0.35;
-          ranked[0].mesh.position.y = (1.2 + 3.6 + 0.35) + hop;
-        }
+        // Animate podium characters (1st/2nd/3rd celebrating with medals, 4th clapping looking up)
+        podiumCharacters.forEach((char) => {
+          if (!char.group.visible) return;
+          if (char.rank === 1) {
+            // 1st place: jumps up with gold medal & pumps arms in victory V-shape
+            const hop = Math.abs(Math.sin(nowTime * 6.5)) * 0.42;
+            char.group.position.y = char.baseY + hop;
+            char.leftArmGroup.rotation.z = 2.4 + Math.sin(nowTime * 6.5) * 0.22;
+            char.rightArmGroup.rotation.z = -2.4 - Math.sin(nowTime * 6.5) * 0.22;
+            char.leftArmGroup.rotation.x = Math.sin(nowTime * 6.5) * 0.2;
+            char.rightArmGroup.rotation.x = Math.sin(nowTime * 6.5) * 0.2;
+            char.headGroup.rotation.y = Math.sin(nowTime * 3.5) * 0.25;
+          } else if (char.rank === 2) {
+            // 2nd place: waves right hand proudly with silver medal
+            char.group.position.y = char.baseY + Math.sin(nowTime * 3.0) * 0.08;
+            char.rightArmGroup.rotation.z = -2.2 + Math.sin(nowTime * 7.0) * 0.35;
+            char.leftArmGroup.rotation.z = 0.55;
+            char.headGroup.rotation.z = Math.sin(nowTime * 3.0) * 0.12;
+            char.headGroup.rotation.y = Math.sin(nowTime * 2.5) * 0.15;
+          } else if (char.rank === 3) {
+            // 3rd place: pumps fist with bronze medal
+            char.group.position.y = char.baseY + Math.sin(nowTime * 4.0) * 0.08;
+            char.leftArmGroup.rotation.z = 2.1 + Math.sin(nowTime * 5.0) * 0.25;
+            char.rightArmGroup.rotation.z = -0.9;
+            char.headGroup.rotation.y = -0.2 + Math.sin(nowTime * 4.0) * 0.18;
+          } else if (char.rank === 4) {
+            // 4th place: standing diagonally, looking up at winners, clapping hands!
+            const clap = Math.sin(nowTime * 13.0);
+            char.group.position.y = char.baseY + Math.abs(clap) * 0.04;
+            char.leftArmGroup.rotation.x = -1.0;
+            char.rightArmGroup.rotation.x = -1.0;
+            char.leftArmGroup.rotation.y = 0.52 + clap * 0.32;
+            char.rightArmGroup.rotation.y = -0.52 - clap * 0.32;
+            char.leftArmGroup.rotation.z = 0.25;
+            char.rightArmGroup.rotation.z = -0.25;
+            char.headGroup.rotation.x = -0.42;
+            char.headGroup.rotation.y = Math.sin(nowTime * 2.0) * 0.06;
+          }
+        });
 
         updateConfetti(dt, nowTime);
       }
