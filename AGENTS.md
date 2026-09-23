@@ -1,6 +1,7 @@
 # Mario Kart 3D Project Context
 
-- Project Home: `C:\Users\길상연\OneDrive\바탕 화면\Antigravity\Kart game\mario-kart-3d`
+- Project Home: `C:\Users\길상연\OneDrive\바탕 화면\Claude Code\Kart game(Claude code)\mario-kart-3d`
+- Developed with: Claude Code (GitHub: `gilsy02/Kart-game-Claude-code`)
 - Core Entry: `index.html`
 - Assets:
   - 3D Car Kit: `kenney_car-kit/`
