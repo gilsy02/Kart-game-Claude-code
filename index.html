@@ -468,7 +468,7 @@
       box-shadow: 0 6px 18px rgba(0,0,0,0.5);
       transition: transform 0.08s, background 0.08s;
     }
-    .touch-btn:active {
+    .touch-btn.active {
       transform: scale(0.92);
       background: rgba(0, 229, 255, 0.45);
       border-color: #00e5ff;
@@ -3822,34 +3822,64 @@
     }
 
     // --- Mobile Virtual Touch Controls Bindings ---
+    // Every touch event recomputes which buttons sit under the fingers, so sliding
+    // a finger from one button to another switches them without lifting.
     function setupMobileTouchControls() {
-      function bindTouch(id, keyName) {
-        const btn = document.getElementById(id);
-        if (!btn) return;
-        const press = (e) => {
-          e.preventDefault();
-          keys[keyName] = true;
-          btn.classList.add('active');
-        };
-        const release = (e) => {
-          e.preventDefault();
-          keys[keyName] = false;
-          btn.classList.remove('active');
-        };
-        btn.addEventListener('touchstart', press, { passive: false });
-        btn.addEventListener('touchend', release, { passive: false });
-        btn.addEventListener('touchcancel', release, { passive: false });
-        btn.addEventListener('mousedown', press);
-        btn.addEventListener('mouseup', release);
-        btn.addEventListener('mouseleave', release);
+      const layer = document.getElementById('mobile-touch-layer');
+      const leftCluster = document.getElementById('touch-left-cluster');
+      const BTN_KEYS = {
+        'btn-touch-left': 'ArrowLeft',
+        'btn-touch-right': 'ArrowRight',
+        'btn-touch-gas': 'ArrowUp',
+        'btn-touch-brake': 'ArrowDown',
+        'btn-touch-drift': 'ShiftLeft',
+        'btn-touch-boost': 'Space',
+      };
+      // Slack (px) around the ◀▶ pair: a thumb that drifts off the buttons or crosses
+      // the gap between them keeps steering, split at the pair's center line.
+      const STEER_PAD = 40;
+      let held = new Set();
+
+      function setPressed(id, on) {
+        keys[BTN_KEYS[id]] = on;
+        document.getElementById(id).classList.toggle('active', on);
+        // N2O fires on press like the Space keydown handler; updatePlayer never polls it
+        if (on && id === 'btn-touch-boost' && gameState === 'RACING') playerKart.triggerN2OBooster();
       }
 
-      bindTouch('btn-touch-left', 'ArrowLeft');
-      bindTouch('btn-touch-right', 'ArrowRight');
-      bindTouch('btn-touch-gas', 'ArrowUp');
-      bindTouch('btn-touch-brake', 'ArrowDown');
-      bindTouch('btn-touch-drift', 'ShiftLeft');
-      bindTouch('btn-touch-boost', 'Space');
+      function buttonAt(x, y) {
+        const r = leftCluster.getBoundingClientRect();
+        if (x > r.left - STEER_PAD && x < r.right + STEER_PAD &&
+            y > r.top - STEER_PAD && y < r.bottom + STEER_PAD) {
+          return x < r.left + r.width / 2 ? 'btn-touch-left' : 'btn-touch-right';
+        }
+        const el = document.elementFromPoint(x, y);
+        const btn = el && el.closest('.touch-btn');
+        return btn && BTN_KEYS[btn.id] ? btn.id : null;
+      }
+
+      function syncTouches(e) {
+        e.preventDefault();
+        const now = new Set();
+        for (const t of e.touches) {
+          if (!layer.contains(t.target)) continue; // ignore fingers that started on the game view
+          const id = buttonAt(t.clientX, t.clientY);
+          if (id) now.add(id);
+        }
+        held.forEach(id => { if (!now.has(id)) setPressed(id, false); });
+        now.forEach(id => { if (!held.has(id)) setPressed(id, true); });
+        held = now;
+      }
+      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type =>
+        layer.addEventListener(type, syncTouches, { passive: false }));
+
+      // Mouse fallback for narrow desktop windows
+      Object.keys(BTN_KEYS).forEach(id => {
+        const btn = document.getElementById(id);
+        btn.addEventListener('mousedown', () => setPressed(id, true));
+        btn.addEventListener('mouseup', () => setPressed(id, false));
+        btn.addEventListener('mouseleave', () => setPressed(id, false));
+      });
     }
     setupMobileTouchControls();
 
