@@ -60,3 +60,14 @@
 - **Three.js** (r160) - 3D 렌더링, 조명, 그림자, 커스텀 GLSL 셰이더
 - **WebAudio API** - 실시간 프로그래머틱 엔진음, 타이어 스키드 노이즈, 충돌음, 승리 팡파르 합성
 - **Pure Web Technologies** - HTML5, Canvas API, CSS3 애니메이션
+
+---
+
+## 🧪 테스트 (Tests)
+
+모바일 터치 조작(버튼 사이 미끄러뜨리기, N2O 탭)을 헤드리스 크롬으로 검사합니다. Google Chrome 설치 필요.
+
+```bash
+npm install
+npm test
+```

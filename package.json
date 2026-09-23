@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node tests/touch-test.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}
