@@ -451,6 +451,10 @@
         display: block;
       }
     }
+    /* Only while driving: keep the buttons off the start and podium screens */
+    body:not(.racing) #mobile-touch-layer {
+      display: none;
+    }
     .touch-btn {
       pointer-events: auto;
       user-select: none;
@@ -690,13 +694,32 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      justify-content: safe center;
       align-items: center;
       background: rgba(5, 10, 20, 0.82);
       backdrop-filter: blur(12px);
       z-index: 20;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    /* Landscape phones: content is taller than the viewport, so stack from the top and shrink */
+    @media (max-height: 520px) {
+      .screen { justify-content: flex-start; padding: 10px 16px; }
+      .title { font-size: 30px; margin-bottom: 2px; }
+      .subtitle { font-size: 14px; margin-bottom: 10px; }
+      .theme-select-section { margin-bottom: 12px; }
+      .theme-select-title { font-size: 14px; margin-bottom: 8px; }
+      .theme-cards-row { flex-wrap: nowrap; gap: 10px; }
+      .theme-card { min-width: 0; padding: 10px 8px; }
+      .theme-icon { font-size: 28px; margin-bottom: 4px; }
+      .theme-name { font-size: 15px; }
+      .theme-desc { display: none; }
+      .btn { padding: 10px 32px; font-size: 18px; }
+      .controls-hint { display: none; }
     }
     .title {
-      font-size: 48px;
+      font-size: clamp(30px, 11vw, 48px);
+      text-align: center;
       color: #ff3333;
       text-shadow: 3px 3px 0 #ffcc00, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
       margin-bottom: 6px;
@@ -1030,7 +1053,7 @@
       </div>
       <div class="hud-speech-bubble" id="hud-speech-bubble">부스터를 사용하여 빠르게 달려요.</div>
       <div class="hud-rank-section">
-        <div class="hud-rank-big"><span id="hud-pos-num">1</span><span class="hud-rank-suffix">st</span><span class="hud-total-players">/ 4</span></div>
+        <div class="hud-rank-big"><span id="hud-pos-num">1</span><span class="hud-rank-suffix" id="hud-pos-suffix">st</span><span class="hud-total-players">/ 4</span></div>
         <div class="hud-player-list">
           <div class="hud-player-row is-player"><span class="player-dot cyan"></span><span class="player-name" id="name-player">Player</span></div>
           <div class="hud-player-row"><span class="player-dot red"></span><span class="player-name">Flame_AI</span></div>
@@ -1247,7 +1270,15 @@
         podiumTitle: '시상식 & 결과 발표',
         medals: ['🥇 1위 (금메달)', '🥈 2위 (은메달)', '🥉 3위 (동메달)', '4위 (박수)'],
         youTag: '(나)',
-        restartBtn: '다시 달리기 (RACE AGAIN)'
+        restartBtn: '다시 달리기 (RACE AGAIN)',
+        bubble: {
+          boost: '🚀 N2O 부스터 점화! 최고 속도로 질주!',
+          drift: '⚡ 드리프트 중! 게이지를 충전하세요!',
+          ready: '🔥 [SPACE] 부스터를 사용할 수 있어요!',
+          idle: '코너에서 [SHIFT]로 드리프트해 게이지를 모아요.'
+        },
+        kartNames: ['스톰 V1', '마라톤 SR', '코튼 X', '버스트 PRO'],
+        kartFallback: '카트라이더'
       },
       us: {
         title: 'MARIO KART 3D',
@@ -1280,7 +1311,15 @@
         podiumTitle: 'VICTORY CEREMONY & RESULTS',
         medals: ['🥇 1st (Gold)', '🥈 2nd (Silver)', '🥉 3rd (Bronze)', '4th (Applause)'],
         youTag: '(YOU)',
-        restartBtn: 'RACE AGAIN'
+        restartBtn: 'RACE AGAIN',
+        bubble: {
+          boost: '🚀 N2O boost ignited! Full speed ahead!',
+          drift: '⚡ Drifting! Charge the gauge!',
+          ready: '🔥 [SPACE] Booster ready to fire!',
+          idle: 'Drift with [SHIFT] in corners to fill the gauge.'
+        },
+        kartNames: ['Storm V1', 'Marathon SR', 'Cotton X', 'Burst PRO'],
+        kartFallback: 'KartRider'
       },
       mx: {
         title: 'MARIO KART 3D',
@@ -1313,7 +1352,15 @@
         podiumTitle: 'CEREMONIA DE VICTORIA Y RESULTADOS',
         medals: ['🥇 1.° (Oro)', '🥈 2.° (Plata)', '🥉 3.° (Bronce)', '4.° (Aplausos)'],
         youTag: '(TÚ)',
-        restartBtn: 'VOLVER A CORRER'
+        restartBtn: 'VOLVER A CORRER',
+        bubble: {
+          boost: '🚀 ¡Nitro N2O encendido! ¡A toda velocidad!',
+          drift: '⚡ ¡Derrapando! ¡Carga el indicador!',
+          ready: '🔥 [SPACE] ¡Turbo listo para usar!',
+          idle: 'Derrapa con [SHIFT] en las curvas para llenar el indicador.'
+        },
+        kartNames: ['Storm V1', 'Marathon SR', 'Cotton X', 'Burst PRO'],
+        kartFallback: 'KartRider'
       }
     };
     let currentTheme = 'witch';
@@ -3412,14 +3459,14 @@
       const standingsContainer = document.getElementById('podium-standings');
       if (!standingsContainer || !currentRankedKarts.length) return;
       standingsContainer.innerHTML = '';
-      const kartNames = ['스톰 V1', '마라톤 SR', '코튼 X', '버스트 PRO'];
+      const { kartNames, kartFallback } = I18N[currentLang];
 
       currentRankedKarts.forEach((k, idx) => {
         const row = document.createElement('div');
         row.className = `rush-row rank-${idx + 1} ${k.isPlayer ? 'is-player' : ''}`;
         const timeDisplay = k.finishTime > 0 ? formatTime(k.finishTime) : (idx === 0 ? finalTimeStr : '+00:02:45');
         const diffText = idx === 0 ? 'RECORDS' : `+00:0${idx}:` + (15 * idx + 23);
-        const kartName = kartNames[idx] || '카트라이더';
+        const kartName = kartNames[idx] || kartFallback;
 
         row.innerHTML = `
           <div class="rush-row-left">
@@ -3459,6 +3506,7 @@
       startTime = 0;
       finalTimeStr = '00:00.00';
       gameState = 'START';
+      document.body.classList.remove('racing');
       confettiParticles.visible = false;
       document.getElementById('podium-screen').style.display = 'none';
       document.getElementById('ui-layer').style.opacity = '1';
@@ -3472,6 +3520,7 @@
 
     function runCountdown(onComplete) {
       gameState = 'COUNTDOWN';
+      document.body.classList.add('racing');
       countdownOverlay.style.display = 'flex';
       let step = 3;
 
@@ -3746,7 +3795,7 @@
 
     function updateHUD() {
       const dict = I18N[currentLang];
-      const playerKmh = Math.round(playerKart.speedKmh);
+      const playerKmh = Math.round(Math.max(0, playerKart.forwardSpeed * KMH_PER_UNIT));
 
       // Digital Speedometer and Curved Neon Arc
       const speedValEl = document.getElementById('hud-speed-val');
@@ -3780,24 +3829,22 @@
       // Dynamic Speech Bubble Hint
       const bubbleEl = document.getElementById('hud-speech-bubble');
       if (bubbleEl) {
-        if (playerKart.isBoosting) {
-          bubbleEl.textContent = '🚀 N2O 부스터 점화! 최고 속도로 질주!';
-        } else if (playerKart.isDrifting) {
-          bubbleEl.textContent = '⚡ 드리프트 중! 게이지를 충전하세요!';
-        } else if (playerKart.boosters > 0) {
-          bubbleEl.textContent = '🔥 [SPACE] 부스터를 사용할 수 있어요!';
-        } else {
-          bubbleEl.textContent = '코너에서 [SHIFT]로 드리프트해 게이지를 모아요.';
-        }
+        const b = I18N[currentLang].bubble;
+        bubbleEl.textContent = playerKart.isBoosting ? b.boost
+          : playerKart.isDrifting ? b.drift
+          : playerKart.boosters > 0 ? b.ready
+          : b.idle;
       }
 
       // Top-Left Rank Position
       const posNumEl = document.getElementById('hud-pos-num');
-      if (posNumEl) posNumEl.textContent = playerKart.rank;
+      const rank = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress).indexOf(playerKart) + 1;
+      if (posNumEl) posNumEl.textContent = rank;
+      if (hudPosSuffix) hudPosSuffix.textContent = dict.rankSuffix[rank - 1];
 
       // Top-Right Lap and Timers
       const lapValEl = document.getElementById('hud-lap-val');
-      if (lapValEl) lapValEl.textContent = Math.min(playerKart.currentLap, 3);
+      if (lapValEl) lapValEl.textContent = Math.min(playerKart.lap, TOTAL_LAPS);
 
       const timeValEl = document.getElementById('hud-time-val');
       const lapTimeEl = document.getElementById('hud-lap-time');
@@ -3885,6 +3932,7 @@
 
     function startPodiumCeremony() {
       gameState = 'PODIUM';
+      document.body.classList.remove('racing');
       document.getElementById('ui-layer').style.opacity = '0';
       confettiParticles.visible = true;
 

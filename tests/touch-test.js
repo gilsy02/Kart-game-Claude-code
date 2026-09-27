@@ -45,9 +45,13 @@ async function runLang(browser, lang) {
   // which can stall past 30s. The enabled start button is the real "ready" signal.
   await page.goto(`http://localhost:${server.address().port}/`, { waitUntil: 'commit' });
   await page.waitForFunction(() => document.getElementById('start-btn')?.disabled === false, null, { timeout: 90000 });
-  // DOM click, not tap: in landscape (844x390) the language switcher sits above the
-  // viewport and can't be tapped (start screen overflows, body has overflow: hidden).
-  await page.locator(`.lang-btn[data-lang="${lang}"]`).dispatchEvent('click');
+  const layerDisplay = () => page.$eval('#mobile-touch-layer', e => getComputedStyle(e).display);
+  record(await layerDisplay() === 'none', `touch buttons hidden on start screen`);
+  // Real tap: in landscape (844x390) the switcher must be inside the viewport
+  const langBtn = page.locator(`.lang-btn[data-lang="${lang}"]`);
+  const lb = await langBtn.boundingBox();
+  record(lb && lb.y >= 0 && lb.y + lb.height <= 390, `language switcher on screen (y=${lb && lb.y.toFixed(0)})`);
+  await langBtn.tap();
   const startText = await text('#start-btn');
   record(startText === LANGS[lang].start, `language applied: start button "${startText}"`);
 
@@ -57,6 +61,9 @@ async function runLang(browser, lang) {
   const goText = await text('.countdown-num.go');
   record(goText === LANGS[lang].go, `countdown go text "${goText}"`);
   await page.waitForTimeout(300);
+  record(await layerDisplay() === 'block', `touch buttons shown while racing`);
+  const idleBubble = await text('#hud-speech-bubble');
+  record(lang === 'kr' ? /[가-힣]/.test(idleBubble) : !/[가-힣]/.test(idleBubble), `bubble in ${lang}: "${idleBubble}"`);
 
   const L = await center('#btn-touch-left'), R = await center('#btn-touch-right');
   const gas = await center('#btn-touch-gas'), brake = await center('#btn-touch-brake'), n2o = await center('#btn-touch-boost');
