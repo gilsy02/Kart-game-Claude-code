@@ -266,7 +266,7 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.2; }
     }
-    #hud-audio-btn {
+    #hud-audio-btn, .fs-btn {
       background: rgba(10, 15, 28, 0.8);
       border: 1.5px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
@@ -278,9 +278,16 @@
       pointer-events: auto;
       transition: all 0.15s;
     }
-    #hud-audio-btn:hover {
+    #hud-audio-btn:hover, .fs-btn:hover {
       background: rgba(0, 229, 255, 0.25);
       border-color: #00e5ff;
+    }
+    .fs-btn[hidden] { display: none; }
+    .start-lang-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
     }
 
     /* RIGHT-MIDDLE: Minimap Card with Tab Label */
@@ -1076,6 +1083,7 @@
       <div class="hud-top-actions">
         <div class="hud-rec-badge"><span class="rec-dot"></span> REC</div>
         <button id="hud-audio-btn">🔊 ON</button>
+        <button class="fs-btn" id="fs-btn-hud">⛶</button>
       </div>
     </div>
 
@@ -1147,6 +1155,7 @@
         <button class="lang-btn" data-lang="us">🇺🇸 English</button>
         <button class="lang-btn" data-lang="mx">🇲🇽 Español</button>
       </div>
+      <button class="fs-btn" id="fs-btn-start">⛶</button>
     </div>
     <div class="title">MARIO KART 3D</div>
     <div class="subtitle" id="start-subtitle">카트라이더 그랑프리 에디션</div>
@@ -1262,6 +1271,7 @@
         controlsHint: '<strong>[↑] / [W]</strong> 가속 (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> 감속 / 후진 &nbsp;|&nbsp; <strong>[←][→]</strong> 조향<br><strong>[SHIFT]</strong> 드리프트 & 순간부스터 (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O 부스터 점화 (250 km/h)',
         lapLabel: 'LAP',
         soundBtn: (on) => `🔊 사운드: ${on ? 'ON' : 'OFF'} [M]`,
+        fsBtn: (on) => on ? '⛶ 전체화면 해제 [F]' : '⛶ 전체화면 [F]',
         driftLabel: 'DRIFT GAUGE',
         cockpitHint: '[SHIFT] 드리프트 | [SPACE] 250km/h 부스터',
         emptySlot: '비어있음',
@@ -1303,6 +1313,7 @@
         controlsHint: '<strong>[↑] / [W]</strong> Accelerate (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> Brake / Reverse &nbsp;|&nbsp; <strong>[←][→]</strong> Steer<br><strong>[SHIFT]</strong> Drift & Mini-Turbo (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O Boost (250 km/h)',
         lapLabel: 'LAP',
         soundBtn: (on) => `🔊 Sound: ${on ? 'ON' : 'OFF'} [M]`,
+        fsBtn: (on) => on ? '⛶ Exit Fullscreen [F]' : '⛶ Fullscreen [F]',
         driftLabel: 'DRIFT GAUGE',
         cockpitHint: '[SHIFT] Drift | [SPACE] 250km/h Nitro Boost',
         emptySlot: 'EMPTY',
@@ -1344,6 +1355,7 @@
         controlsHint: '<strong>[↑] / [W]</strong> Acelerar (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> Freno / Reversa &nbsp;|&nbsp; <strong>[←][→]</strong> Dirección<br><strong>[SHIFT]</strong> Derrape y Mini-Turbo (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> Impulso Nitro N2O (250 km/h)',
         lapLabel: 'VUELTA',
         soundBtn: (on) => `🔊 Sonido: ${on ? 'ON' : 'OFF'} [M]`,
+        fsBtn: (on) => on ? '⛶ Salir de pantalla completa [F]' : '⛶ Pantalla completa [F]',
         driftLabel: 'INDICADOR DERRAPE',
         cockpitHint: '[SHIFT] Derrape | [SPACE] 250km/h Nitro Turbo',
         emptySlot: 'VACÍO',
@@ -3452,6 +3464,7 @@
       if (gameState === 'PODIUM') {
         renderPodiumStandings();
       }
+      updateFullscreenLabels();
       updateHUD();
     }
 
@@ -3558,6 +3571,7 @@
         const isSoundOn = engineAudio.toggleMute();
         hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
       }
+      if (e.code === 'KeyF') toggleFullscreen();
       if (e.code === 'Space' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
         if (gameState === 'RACING') playerKart.triggerN2OBooster();
       }
@@ -3583,6 +3597,32 @@
       hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
     });
 
+    // --- Fullscreen (desktop: button / [F]; touch: also auto on START, plus landscape lock) ---
+    const doc = document.documentElement;
+    const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+    const fsButtons = document.querySelectorAll('.fs-btn');
+    const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    function updateFullscreenLabels() {
+      const label = I18N[currentLang].fsBtn(isFullscreen());
+      fsButtons.forEach((b) => { b.textContent = label; b.hidden = !fsSupported; });
+    }
+    function enterFullscreen() {
+      if (!fsSupported || isFullscreen()) return;
+      const req = doc.requestFullscreen ? doc.requestFullscreen() : doc.webkitRequestFullscreen();
+      Promise.resolve(req).then(() => {
+        // ponytail: orientation lock only exists inside fullscreen and only on some mobile browsers
+        if (matchMedia('(pointer: coarse)').matches && screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }).catch(() => {});
+    }
+    function toggleFullscreen() {
+      if (isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else enterFullscreen();
+    }
+    fsButtons.forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(); }));
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach((t) => document.addEventListener(t, updateFullscreenLabels));
+
     // Language switcher click handlers
     document.querySelectorAll('.lang-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
@@ -3607,6 +3647,7 @@
 
     startBtn.addEventListener('click', () => {
       engineAudio.init();
+      if (matchMedia('(pointer: coarse)').matches) enterFullscreen();
       startScreen.style.display = 'none';
       runCountdown();
     });

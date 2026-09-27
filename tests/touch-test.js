@@ -54,8 +54,13 @@ async function runLang(browser, lang) {
   await langBtn.tap();
   const startText = await text('#start-btn');
   record(startText === LANGS[lang].start, `language applied: start button "${startText}"`);
+  const fsLabel = await text('#fs-btn-start');
+  record(fsLabel.includes('[F]') && (lang === 'kr') === /[가-힣]/.test(fsLabel), `fullscreen button in ${lang}: "${fsLabel}"`);
 
+  // Headless can't really go fullscreen: stub the request and check START asks for it on touch devices
+  await page.evaluate(() => { document.documentElement.requestFullscreen = () => { window.__fsRequested = true; return Promise.resolve(); }; });
   await page.tap('#start-btn');
+  record(await page.evaluate(() => window.__fsRequested === true), `START requests fullscreen on touch device`);
   // "GO" class is set together with gameState = 'RACING'; the overlay may already be hidden
   await page.waitForSelector('.countdown-num.go', { state: 'attached', timeout: 15000 });
   const goText = await text('.countdown-num.go');
