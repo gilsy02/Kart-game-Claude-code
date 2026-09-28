@@ -1178,6 +1178,22 @@
     <div class="title">MARIO KART 3D</div>
     <div class="subtitle" id="start-subtitle">카트라이더 그랑프리 에디션</div>
 
+    <div class="theme-select-section track-select-section">
+      <div class="theme-select-title track-select-title">🏁 트랙을 선택하세요 🏁</div>
+      <div class="theme-cards-row">
+        <div class="theme-card active" data-track="oval">
+          <div class="theme-icon">🏁</div>
+          <div class="theme-name">기본 서킷</div>
+          <div class="theme-desc">완만한 타원형 코스, 드리프트 연습에 딱</div>
+        </div>
+        <div class="theme-card" data-track="village_highway">
+          <div class="theme-icon">🌉</div>
+          <div class="theme-name">빌리지 고가의 질주</div>
+          <div class="theme-desc">긴 고가도로 직선과 급내리막, 마지막 U턴</div>
+        </div>
+      </div>
+    </div>
+
     <div class="theme-select-section">
       <div class="theme-select-title">🏁 레이싱 트랙 배경 테마를 선택하세요 🏁</div>
       <div class="theme-cards-row">
@@ -1271,6 +1287,11 @@
         title: 'MARIO KART 3D',
         subtitle: '카트라이더 그랑프리 에디션',
         selectTheme: '🏁 레이싱 트랙 배경 테마를 선택하세요 🏁',
+        selectTrack: '🏁 트랙을 선택하세요 🏁',
+        tracks: {
+          oval: { name: '기본 서킷', desc: '완만한 타원형 코스, 드리프트 연습에 딱' },
+          village_highway: { name: '빌리지 고가의 질주', desc: '긴 고가도로 직선과 급내리막, 마지막 U턴' }
+        },
         themes: {
           witch: {
             name: '마녀 도시',
@@ -1313,6 +1334,11 @@
         title: 'MARIO KART 3D',
         subtitle: 'KartRider Grand Prix Edition',
         selectTheme: '🏁 Select Track Background Theme 🏁',
+        selectTrack: '🏁 Select Track 🏁',
+        tracks: {
+          oval: { name: 'Basic Circuit', desc: 'Gentle oval loop, perfect for drift practice' },
+          village_highway: { name: 'Village Highway Run', desc: 'Long overpass straight, steep downhill, final hairpin' }
+        },
         themes: {
           witch: {
             name: 'Witch City',
@@ -1355,6 +1381,11 @@
         title: 'MARIO KART 3D',
         subtitle: 'Edición Gran Premio KartRider',
         selectTheme: '🏁 Selecciona el Tema de la Pista 🏁',
+        selectTrack: '🏁 Selecciona la Pista 🏁',
+        tracks: {
+          oval: { name: 'Circuito Básico', desc: 'Óvalo suave, ideal para practicar derrapes' },
+          village_highway: { name: 'Carrera del Viaducto', desc: 'Larga recta elevada, bajada empinada y horquilla final' }
+        },
         themes: {
           witch: {
             name: 'Ciudad Bruja',
@@ -1401,9 +1432,63 @@
     const BOOSTER_DURATION = 3.2; // seconds an N2O boost lasts; drives boosterTimer and the BOOST gauge
     const TRACK_RADIUS_X = 140;
     const TRACK_RADIUS_Z = 75;
-    const ROAD_WIDTH = 22;
-    const NUM_WAYPOINTS = 100;
+    let ROAD_WIDTH = 22; // 트랙별 roadWidth 필드로 덮어쓸 수 있음 (applyTrack)
     const FORWARD_FIX_Y = 0;
+
+    // ===== 트랙 레지스트리 =====
+    // controlPoints: 닫힌 루프 제어점 [x, z, y]. x 오른쪽, z 화면 아래(미니맵 기준), y 높이.
+    // numWaypoints: 트랙 길이에 비례 (간격 약 6~7 유닛). podium: 시상대 위치 [x, z].
+    // 새 트랙 추가 = 여기에 항목 하나 + 시작 화면 카드(data-track) + I18N.tracks 문자열.
+    const TRACK_ELEVATION_SCALE = 0; // Phase 1: 높낮이 끔(0). Phase 2에서 1로 올리면 y값이 실제 도로 높이가 됨
+    const OVAL_CONTROL_POINTS = [];
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      OVAL_CONTROL_POINTS.push([Math.cos(a) * TRACK_RADIUS_X, Math.sin(a) * TRACK_RADIUS_Z, 0]);
+    }
+    const TRACKS = {
+      oval: {
+        id: 'oval',
+        controlPoints: OVAL_CONTROL_POINTS, // 기존 타원 재현 (회귀 방지)
+        numWaypoints: 100,
+        defaultTheme: 'witch',
+        laps: 3,
+        podium: [0, -315],
+      },
+      village_highway: {
+        id: 'village_highway',
+        // 빌리지 고가의 질주 참고: 출발 직선 → 마을 S커브 → 오르막 → 긴 고가 직선 → 출구 커브 → 급내리막 → U턴 → 골인
+        // "고가 직선을 더 길게" = P9/P10의 z 범위를 늘리면 됨
+        controlPoints: [
+          [   0,    0,  0],   // P0  출발/골인선. 마을 큰길
+          [ 180,    0,  0],   // P1  시작 직선 끝
+          [ 250,   25,  0],   // P2  완만한 첫 커브
+          [ 280,   90,  0],   // P3
+          [ 250,  150,  0],   // P4  마을 S커브 (1)
+          [ 290,  210,  0],   // P5  마을 S커브 (2)
+          [ 380,  240,  0],   // P6  마을 출구, 직선
+          [ 470,  230,  4],   // P7  오르막 시작 (램프)
+          [ 540,  190, 14],   // P8  오르막 끝, 고가 진입 커브
+          [ 560,  120, 14],   // P9  고가 직선 시작
+          [ 560, -200, 14],   // P10 고가 직선 끝 (약 320 유닛)
+          [ 530, -280, 12],   // P11 고가 출구 커브 시작
+          [ 450, -320, 10],   // P12
+          [ 340, -320, 10],   // P13 출구 커브 끝, 짧은 직선
+          [ 250, -300,  4],   // P14 급내리막 시작
+          [ 170, -270,  0],   // P15 내리막 바닥
+          [  60, -240,  0],   // P16 U턴 진입
+          [ -30, -220,  0],   // P17 U턴
+          [ -70, -150,  0],   // P18
+          [ -60,  -70,  0],   // P19
+          [ -30,  -15,  0],   // P20 U턴 탈출, 골인선을 향해 +x
+        ],
+        numWaypoints: 220,
+        defaultTheme: 'witch', // Phase 3에서 'village'로 교체
+        laps: 3,
+        podium: [300, -100], // 루프 안쪽, 도로에서 떨어진 자리
+      },
+    };
+    const OVAL_LENGTH = 705; // 기존 타원 둘레(유닛). 길가 소품 밀도 기준값
+    const DEBUG_TRACK = new URLSearchParams(location.search).get('debugTrack') === '1'; // ?debugTrack=1 → 큰 미니맵 + waypoint 번호
 
     const KMH_PER_UNIT = 216.0;
     const MAX_FORWARD_SPEED_PLAYER = 250.0 / KMH_PER_UNIT;
@@ -1439,20 +1524,34 @@
     dirLight.shadow.camera.near = 10;
     dirLight.shadow.camera.far = 400;
     scene.add(dirLight);
+    scene.add(dirLight.target);
 
-    // Track Waypoints
-    function getTrackPoint(t) {
-      const angle = t * Math.PI * 2;
-      return new THREE.Vector3(
-        Math.cos(angle) * TRACK_RADIUS_X,
-        0,
-        Math.sin(angle) * TRACK_RADIUS_Z
-      );
+    // Track Waypoints (spline-based; applyTrack() fills these)
+    let currentTrack = TRACKS.oval;
+    let trackCurve = null;   // THREE.CatmullRomCurve3, 트랙 선택 시 한 번만 생성
+    let trackLength = OVAL_LENGTH;
+    const waypoints = [];    // 같은 배열 객체를 유지 (참조하는 곳이 많음), applyTrack에서 내용만 교체
+
+    function buildTrackCurve(track) {
+      const pts = track.controlPoints.map(([x, z, y]) => new THREE.Vector3(x, y * TRACK_ELEVATION_SCALE, z));
+      const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
+      curve.arcLengthDivisions = 2000; // 호 길이 테이블 해상도 (getPointAt 균등 분포용)
+      return curve;
     }
 
-    const waypoints = [];
-    for (let i = 0; i < NUM_WAYPOINTS; i++) {
-      waypoints.push(getTrackPoint(i / NUM_WAYPOINTS));
+    // t: 0~1, 호 길이 기준 균등 분포
+    function getTrackPoint(t) {
+      return trackCurve.getPointAt(((t % 1) + 1) % 1);
+    }
+
+    function rebuildWaypoints() {
+      waypoints.length = 0;
+      for (let i = 0; i < currentTrack.numWaypoints; i++) waypoints.push(getTrackPoint(i / currentTrack.numWaypoints));
+    }
+
+    // XZ 평면 거리 (높이 무시)
+    function distXZ(a, b) {
+      return Math.hypot(a.x - b.x, a.z - b.z);
     }
 
     // Ground Mesh
@@ -1484,8 +1583,10 @@
       for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / tile, uv.getY(i) * h / tile);
     }
 
-    const grassGeo = new THREE.PlaneGeometry(800, 800);
-    let grassMat = pbrMaterial('leafy_grass', 90);
+    const GROUND_SIZE = 2400; // 바닥 평면 한 변 (고가 트랙 x -70~560, z -320~240 를 여유 있게 덮음)
+    const GROUND_REPEAT = GROUND_SIZE / 800; // 텍스처 타일 밀도를 예전 800 평면과 같게
+    const grassGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
+    let grassMat = pbrMaterial('leafy_grass', 90 * GROUND_REPEAT);
     const grassMesh = new THREE.Mesh(grassGeo, grassMat);
     grassMesh.rotation.x = -Math.PI / 2;
     grassMesh.receiveShadow = true;
@@ -1569,7 +1670,11 @@
     });
 
     function buildTrackMesh() {
-      const roadSegments = 160;
+      for (const m of [roadMesh, cInMesh, cOutMesh]) {
+        if (m) { scene.remove(m); m.geometry.dispose(); }
+      }
+      const roadSegments = currentTrack.numWaypoints * 2;
+      const uvRepeat = 45 * trackLength / OVAL_LENGTH; // 도로 텍스처 타일 밀도를 타원과 동일하게
       const roadGeom = new THREE.BufferGeometry();
       const curbInGeom = new THREE.BufferGeometry();
       const curbOutGeom = new THREE.BufferGeometry();
@@ -1597,8 +1702,8 @@
         posRoad.push(r1.x, 0.02, r1.z, r2.x, 0.02, r2.z, l2.x, 0.02, l2.z);
 
         // Road UVs (0 at left, 1 at right, length repeats along track)
-        const v1 = t1 * 45;
-        const v2 = t2 * 45;
+        const v1 = t1 * uvRepeat;
+        const v2 = (i === roadSegments - 1 ? 1 : t2) * uvRepeat; // 마지막 구간은 0으로 감기지 않게
         uvRoad.push(0, v1,  1, v1,  0, v2);
         uvRoad.push(1, v1,  1, v2,  0, v2);
 
@@ -1632,8 +1737,6 @@
       scene.add(cOutMesh);
     }
 
-    buildTrackMesh();
-
     // Finish Arch
     function createCheckeredTexture() {
       const c = document.createElement('canvas');
@@ -1649,16 +1752,10 @@
       return new THREE.CanvasTexture(c);
     }
 
-    const finishP = getTrackPoint(0);
-    const finishNext = getTrackPoint(0.01);
-    const finishDir = finishNext.clone().sub(finishP).normalize();
-
     const finishLineGeo = new THREE.PlaneGeometry(ROAD_WIDTH, 4);
     const finishLineMat = new THREE.MeshBasicMaterial({ map: createCheckeredTexture(), side: THREE.DoubleSide });
     const finishLine = new THREE.Mesh(finishLineGeo, finishLineMat);
     finishLine.rotation.x = -Math.PI / 2;
-    finishLine.rotation.z = -Math.atan2(finishDir.z, finishDir.x) + Math.PI / 2;
-    finishLine.position.copy(finishP).add(new THREE.Vector3(0, 0.05, 0));
     scene.add(finishLine);
 
     const archGroup = new THREE.Group();
@@ -1675,9 +1772,30 @@
     banner.position.set(0, 8.5, 0);
 
     archGroup.add(poleLeft, poleRight, banner);
-    archGroup.position.copy(finishP);
-    archGroup.rotation.y = -Math.atan2(finishDir.z, finishDir.x) + Math.PI / 2;
     scene.add(archGroup);
+
+    // 출발선 + 아치를 현재 트랙의 t=0 지점에 놓는다
+    function placeFinish() {
+      const finishP = getTrackPoint(0);
+      const finishDir = getTrackPoint(0.01).clone().sub(finishP).normalize();
+      const yaw = -Math.atan2(finishDir.z, finishDir.x) + Math.PI / 2;
+      finishLine.rotation.z = yaw;
+      finishLine.position.copy(finishP).add(new THREE.Vector3(0, 0.05, 0));
+      archGroup.position.copy(finishP);
+      archGroup.rotation.y = yaw;
+    }
+
+    // 트랙 선택: 곡선/웨이포인트/도로 메시/출발선 재생성. 카트 재배치와 테마 재적용은 selectTrack()이 맡음
+    function applyTrack(id) {
+      currentTrack = TRACKS[id];
+      ROAD_WIDTH = currentTrack.roadWidth || 22;
+      trackCurve = buildTrackCurve(currentTrack);
+      trackLength = trackCurve.getLength();
+      rebuildWaypoints();
+      buildTrackMesh();
+      placeFinish();
+    }
+    applyTrack('oval');
 
     // --- 3 THEMES ENVIRONMENT GENERATOR ---
     const environmentGroup = new THREE.Group();
@@ -1756,12 +1874,13 @@
     }
 
     function setGround(name, repeat, tint) {
-      grassMat = pbrMaterial(name, repeat, { color: tint });
+      grassMat = pbrMaterial(name, repeat * GROUND_REPEAT, { color: tint });
       grassMesh.material = grassMat;
     }
 
     // Walks the track and calls place(pos, norm, i) for each roadside slot on both sides
     function forEachRoadside(count, offsets, place) {
+      count = Math.round(count * trackLength / OVAL_LENGTH); // 긴 트랙일수록 소품도 비례해서 (밀도 유지)
       for (let i = 0; i < count; i++) {
         const t = i / count;
         const pt = getTrackPoint(t);
@@ -2109,10 +2228,14 @@
     }
 
     // --- 3D Podium Stage (KartRider Grand Prix Edition) ---
-    const PODIUM_ORIGIN = new THREE.Vector3(0, 0, -315);
+    const PODIUM_ORIGIN = new THREE.Vector3(0, 0, -315); // applyTrack 후 placePodium()이 트랙별 위치로 옮김
     const podiumGroup = new THREE.Group();
     podiumGroup.position.copy(PODIUM_ORIGIN);
     scene.add(podiumGroup);
+    function placePodium() {
+      PODIUM_ORIGIN.set(currentTrack.podium[0], 0, currentTrack.podium[1]);
+      podiumGroup.position.copy(PODIUM_ORIGIN);
+    }
 
     // Championship Dais Platform (KartRider Rush+ Checkered Floor)
     const daisGeo = new THREE.CylinderGeometry(24, 25, 1.2, 40);
@@ -3198,26 +3321,27 @@
 
         for (let offset = -4; offset <= 6; offset++) {
           const idx = (this.currentWaypointIdx + offset + totalW) % totalW;
-          const d = this.pos.distanceTo(waypoints[idx]);
+          const d = distXZ(this.pos, waypoints[idx]);
           if (d < minDist) {
             minDist = d;
             nearestIdx = idx;
           }
         }
 
-        // Checkpoints along the 100-waypoint track (25, 50, 75)
-        if (nearestIdx >= 20 && nearestIdx <= 35) {
+        // Checkpoints at 25 / 50 / 75 % of the lap (ratio-based, any waypoint count)
+        const frac = nearestIdx / totalW;
+        if (frac >= 0.20 && frac <= 0.35) {
           this.checkpointsPassed = Math.max(this.checkpointsPassed, 1);
-        } else if (nearestIdx >= 45 && nearestIdx <= 60) {
+        } else if (frac >= 0.45 && frac <= 0.60) {
           this.checkpointsPassed = Math.max(this.checkpointsPassed, 2);
-        } else if (nearestIdx >= 70 && nearestIdx <= 85) {
+        } else if (frac >= 0.70 && frac <= 0.85) {
           this.checkpointsPassed = Math.max(this.checkpointsPassed, 3);
         }
 
-        // Lap progression
-        if (nearestIdx > this.currentWaypointIdx && nearestIdx - this.currentWaypointIdx < 15) {
+        // Lap progression (wrap = from the last 12 % of the lap into the first 10 %)
+        if (nearestIdx > this.currentWaypointIdx && nearestIdx - this.currentWaypointIdx < totalW * 0.15) {
           this.currentWaypointIdx = nearestIdx;
-        } else if (this.currentWaypointIdx > totalW - 14 && nearestIdx < 12) {
+        } else if (this.currentWaypointIdx > totalW * 0.88 && nearestIdx < totalW * 0.10) {
           this.currentWaypointIdx = nearestIdx;
           // Only complete a lap if player drove through all 3 checkpoints of the track
           if (this.checkpointsPassed >= 3) {
@@ -3520,8 +3644,16 @@
       // Start screen
       const subTitleEl = document.getElementById('start-subtitle');
       if (subTitleEl) subTitleEl.textContent = dict.subtitle;
-      const themeTitleEl = document.querySelector('.theme-select-title');
+      const themeTitleEl = document.querySelector('.theme-select-title:not(.track-select-title)');
       if (themeTitleEl) themeTitleEl.textContent = dict.selectTheme;
+      const trackTitleEl = document.querySelector('.track-select-title');
+      if (trackTitleEl) trackTitleEl.textContent = dict.selectTrack;
+      document.querySelectorAll('.theme-card[data-track]').forEach((card) => {
+        const s = dict.tracks[card.getAttribute('data-track')];
+        if (!s) return;
+        card.querySelector('.theme-name').textContent = s.name;
+        card.querySelector('.theme-desc').textContent = s.desc;
+      });
 
       const witchCard = document.querySelector('.theme-card[data-theme="witch"]');
       if (witchCard) {
@@ -3739,13 +3871,31 @@
     setLanguage('kr');
 
     // Theme selector card click handlers
-    document.querySelectorAll('.theme-card').forEach((card) => {
+    function setThemeCard(theme) {
+      document.querySelectorAll('.theme-card[data-theme]').forEach((c) => c.classList.toggle('active', c.getAttribute('data-theme') === theme));
+    }
+    document.querySelectorAll('.theme-card[data-theme]').forEach((card) => {
       card.addEventListener('click', () => {
-        document.querySelectorAll('.theme-card').forEach((c) => c.classList.remove('active'));
-        card.classList.add('active');
         const theme = card.getAttribute('data-theme');
+        setThemeCard(theme);
         applyTheme(theme);
       });
+    });
+
+    // Track selector: rebuild track, move karts/podium, re-place theme props along the new road
+    function selectTrack(id) {
+      if (!TRACKS[id]) return;
+      document.querySelectorAll('.theme-card[data-track]').forEach((c) => c.classList.toggle('active', c.getAttribute('data-track') === id));
+      applyTrack(id);
+      placePodium();
+      mmBoundsCache = null;
+      allKarts.forEach((k, idx) => k.setGridPosition(idx));
+      const theme = TRACKS[id].defaultTheme;
+      setThemeCard(theme);
+      applyTheme(theme);
+    }
+    document.querySelectorAll('.theme-card[data-track]').forEach((card) => {
+      card.addEventListener('click', () => selectTrack(card.getAttribute('data-track')));
     });
 
     startBtn.addEventListener('click', () => {
@@ -3763,28 +3913,56 @@
     // Minimap
     const minimapCanvas = document.getElementById('minimap');
     const mmCtx = minimapCanvas.getContext('2d');
+    if (DEBUG_TRACK) {
+      minimapCanvas.width = minimapCanvas.height = 300;
+      const box = minimapCanvas.parentElement;
+      if (box) { box.style.width = '300px'; box.style.height = '300px'; }
+    }
+    let mmBoundsCache = null; // 트랙이 바뀌면 null로 리셋 (selectTrack)
+    function minimapBounds() {
+      if (mmBoundsCache && mmBoundsCache.n === waypoints.length && mmBoundsCache.track === currentTrack) return mmBoundsCache;
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (const wp of waypoints) {
+        if (wp.x < minX) minX = wp.x; if (wp.x > maxX) maxX = wp.x;
+        if (wp.z < minZ) minZ = wp.z; if (wp.z > maxZ) maxZ = wp.z;
+      }
+      mmBoundsCache = { minX, maxX, minZ, maxZ, n: waypoints.length, track: currentTrack };
+      return mmBoundsCache;
+    }
 
     function drawMinimap() {
       const w = minimapCanvas.width;
       const h = minimapCanvas.height;
       mmCtx.clearRect(0, 0, w, h);
 
-      const centerX = w / 2;
-      const centerY = h / 2;
-      const scaleX = (w - 24) / (TRACK_RADIUS_X * 2);
-      const scaleZ = (h - 24) / (TRACK_RADIUS_Z * 2);
+      // Fit the track's XZ bounding box into the canvas (uniform scale, 12px margin)
+      const n = waypoints.length;
+      const bb = minimapBounds();
+      const scale = Math.min((w - 24) / (bb.maxX - bb.minX), (h - 24) / (bb.maxZ - bb.minZ));
+      const centerX = w / 2 - (bb.minX + bb.maxX) / 2 * scale;
+      const centerY = h / 2 - (bb.minZ + bb.maxZ) / 2 * scale;
+      const scaleX = scale, scaleZ = scale;
 
       mmCtx.beginPath();
       mmCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      mmCtx.lineWidth = 5;
-      for (let i = 0; i <= NUM_WAYPOINTS; i++) {
-        const wp = waypoints[i % NUM_WAYPOINTS];
+      mmCtx.lineWidth = DEBUG_TRACK ? 3 : 5;
+      for (let i = 0; i <= n; i++) {
+        const wp = waypoints[i % n];
         const x = centerX + wp.x * scaleX;
         const y = centerY + wp.z * scaleZ;
         if (i === 0) mmCtx.moveTo(x, y);
         else mmCtx.lineTo(x, y);
       }
       mmCtx.stroke();
+
+      if (DEBUG_TRACK) {
+        mmCtx.fillStyle = '#7fffd4';
+        mmCtx.font = '9px monospace';
+        for (let i = 0; i < n; i += 10) {
+          const wp = waypoints[i];
+          mmCtx.fillText(String(i), centerX + wp.x * scaleX + 3, centerY + wp.z * scaleZ - 3);
+        }
+      }
 
       const startWp = waypoints[0];
       mmCtx.fillStyle = '#ffea00';
@@ -3836,7 +4014,11 @@
       }
 
       const totalW = waypoints.length;
-      const lookahead = ai.isBoosting ? 5 : 3;
+      // 앞쪽 8 waypoint 사이의 방향 변화 = 커브 강도 (0 직선 ~ 3.14 U턴)
+      const wpA = waypoints[ai.currentWaypointIdx], wpB = waypoints[(ai.currentWaypointIdx + 4) % totalW], wpC = waypoints[(ai.currentWaypointIdx + 8) % totalW];
+      const curveAhead = new THREE.Vector3().subVectors(wpB, wpA).setY(0).angleTo(new THREE.Vector3().subVectors(wpC, wpB).setY(0));
+      const AI_CURVE_TIGHT = 0.35; // 이 각도(rad) 이상이면 급커브로 보고 짧게 보며 감속
+      const lookahead = curveAhead > AI_CURVE_TIGHT ? 2 : (ai.isBoosting ? 5 : 3);
       const targetWaypointIdx = (ai.currentWaypointIdx + lookahead) % totalW;
       const targetP = waypoints[targetWaypointIdx].clone();
 
@@ -3872,8 +4054,13 @@
         aiDrift = true;
         gas = 0.94;
       }
+      // 급커브 진입 전 감속 (U턴·S커브에서 벽에 박히지 않게)
+      if (curveAhead > AI_CURVE_TIGHT && aiKmh > 105) {
+        gas = 0.7;
+        if (curveAhead > 0.6 && aiKmh > 130) brake = 1;
+      }
 
-      const isStraight = Math.abs(angleDiff) < 0.12 && angleToTurn < 0.25;
+      const isStraight = Math.abs(angleDiff) < 0.12 && angleToTurn < 0.25 && curveAhead < 0.2;
       if (isStraight && ai.boosters > 0 && !ai.isBoosting) {
         aiBoost = true;
       }
@@ -4165,11 +4352,23 @@
 
     let podiumOrbitAngle = Math.PI;
 
+    // One physics frame for all karts (also driven by the test hook __game.step)
+    function stepRace() {
+      updatePlayer();
+      aiKarts.forEach(updateAI);
+      checkKartCollisions();
+      if (playerKart.finished && gameState === 'RACING') startPodiumCeremony();
+    }
+
     function animate() {
       requestAnimationFrame(animate);
 
       const dt = 1 / 60;
       const nowTime = performance.now() * 0.001;
+
+      // Shadow camera follows the player so the big tracks stay shadowed
+      dirLight.position.set(playerKart.pos.x + 100, 150, playerKart.pos.z + 80);
+      dirLight.target.position.copy(playerKart.pos);
 
       skidmarkManager.update(dt);
       updateSparks(dt);
@@ -4178,13 +4377,7 @@
       
 
       if (gameState === 'RACING' || gameState === 'COUNTDOWN') {
-        updatePlayer();
-        aiKarts.forEach(updateAI);
-        checkKartCollisions();
-
-        if (playerKart.finished && gameState === 'RACING') {
-          startPodiumCeremony();
-        }
+        stepRace();
       } else if (gameState === 'START') {
         const time = performance.now() * 0.0005;
         camera.position.set(
@@ -4267,6 +4460,14 @@
     }
 
     animate();
+
+    // Test hooks (tests/track-test.js): step(n) advances n physics frames without waiting for rAF
+    Object.assign(window.__game, {
+      tracks: TRACKS, allKarts, waypoints, selectTrack, elevation: TRACK_ELEVATION_SCALE,
+      getState: () => gameState,
+      getTrack: () => currentTrack.id,
+      step(n) { for (let i = 0; i < n && gameState === 'RACING'; i++) stepRace(); },
+    });
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
