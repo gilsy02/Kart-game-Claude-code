@@ -1439,7 +1439,14 @@
     // controlPoints: 닫힌 루프 제어점 [x, z, y]. x 오른쪽, z 화면 아래(미니맵 기준), y 높이.
     // numWaypoints: 트랙 길이에 비례 (간격 약 6~7 유닛). podium: 시상대 위치 [x, z].
     // 새 트랙 추가 = 여기에 항목 하나 + 시작 화면 카드(data-track) + I18N.tracks 문자열.
-    const TRACK_ELEVATION_SCALE = 0; // Phase 1: 높낮이 끔(0). Phase 2에서 1로 올리면 y값이 실제 도로 높이가 됨
+    const TRACK_ELEVATION_SCALE = 1; // 1 = 제어점 y값이 실제 도로 높이. 0이면 평면 트랙(디버그용)
+    // ===== 경사 물리 상수 =====
+    const SLOPE_GRAVITY_DOWN = 0.06; // 내리막 가속 (프레임당 forwardSpeed 증가 = -기울기 × 이 값)
+    const SLOPE_GRAVITY_UP = 0.012;  // 오르막 감속 (게임성 위해 내리막보다 약하게)
+    const SLOPE_TOP_BONUS = 140;     // 내리막에서 최고속 상한 보너스 (km/h per 기울기 1.0). 10° 내리막 ≈ +25 km/h
+    const SLOPE_GRIP_DOWN = 0.85;    // 내리막 노면 그립
+    const KART_PITCH_MAX = 12 * Math.PI / 180; // 차체 앞뒤 기울기 최대
+    const GROUND_FOLLOW = 0.35;      // 카트 y가 도로 높이를 따라가는 lerp 비율
     const OVAL_CONTROL_POINTS = [];
     for (let i = 0; i < 32; i++) {
       const a = (i / 32) * Math.PI * 2;
@@ -1473,7 +1480,7 @@
           [ 530, -280, 12],   // P11 고가 출구 커브 시작
           [ 450, -320, 10],   // P12
           [ 340, -320, 10],   // P13 출구 커브 끝, 짧은 직선
-          [ 250, -300,  4],   // P14 급내리막 시작
+          [ 250, -300,  9],   // P14 급내리막 시작 (9 → 0 을 약 85 유닛에 소화, 약 6°)
           [ 170, -270,  0],   // P15 내리막 바닥
           [  60, -240,  0],   // P16 U턴 진입
           [ -30, -220,  0],   // P17 U턴
@@ -1541,12 +1548,45 @@
 
     // t: 0~1, 호 길이 기준 균등 분포
     function getTrackPoint(t) {
-      return trackCurve.getPointAt(((t % 1) + 1) % 1);
+      const p = trackCurve.getPointAt(((t % 1) + 1) % 1);
+      if (p.y < 0) p.y = 0; // 스플라인 오버슈트로 도로가 땅 밑으로 꺼지지 않게
+      return p;
     }
 
+    const wpSlope = []; // waypoint별 진행 방향 기울기 (dy / dxz). 양수 = 오르막
     function rebuildWaypoints() {
       waypoints.length = 0;
-      for (let i = 0; i < currentTrack.numWaypoints; i++) waypoints.push(getTrackPoint(i / currentTrack.numWaypoints));
+      wpSlope.length = 0;
+      const n = currentTrack.numWaypoints;
+      for (let i = 0; i < n; i++) waypoints.push(getTrackPoint(i / n));
+      for (let i = 0; i < n; i++) {
+        const a = waypoints[(i - 1 + n) % n], b = waypoints[(i + 1) % n];
+        wpSlope.push((b.y - a.y) / Math.max(0.001, distXZ(a, b)));
+      }
+      // 급내리막 = 기울기 -SLOPE_STEEP 이하가 이어지는 가장 긴 구간. 그 왼쪽에 인도를 둔다 (Phase 2)
+      let best = null, runStart = -1;
+      for (let i = 0; i <= n; i++) {
+        const steepDown = i < n && wpSlope[i] <= -SLOPE_STEEP;
+        if (steepDown && runStart < 0) runStart = i;
+        if (!steepDown && runStart >= 0) {
+          if (!best || i - runStart > best.to - best.from) best = { from: runStart, to: i - 1 };
+          runStart = -1;
+        }
+      }
+      currentTrack.sidewalk = best && best.to - best.from >= 4 ? { from: Math.max(0, best.from - 2), to: Math.min(n - 1, best.to + 2) } : null;
+    }
+
+    // 트랙 위 임의 지점의 도로 높이/기울기: 가장 가까운 waypoint 앞뒤 구간에 투영해 보간
+    function groundAt(pos, idx) {
+      const n = waypoints.length;
+      const a = waypoints[idx], b = waypoints[(idx + 1) % n], c = waypoints[(idx - 1 + n) % n];
+      const ab = new THREE.Vector3().subVectors(b, a).setY(0);
+      const ap = new THREE.Vector3().subVectors(pos, a).setY(0);
+      let t = ab.lengthSq() > 0 ? ap.dot(ab) / ab.lengthSq() : 0;
+      if (t >= 0) return { y: THREE.MathUtils.lerp(a.y, b.y, Math.min(t, 1)), slope: wpSlope[idx], dir: ab.normalize() };
+      const ac = new THREE.Vector3().subVectors(c, a).setY(0);
+      t = ac.lengthSq() > 0 ? Math.min(1, ap.dot(ac) / ac.lengthSq()) : 0;
+      return { y: THREE.MathUtils.lerp(a.y, c.y, t), slope: wpSlope[idx], dir: ac.negate().normalize() };
     }
 
     // XZ 평면 거리 (높이 무시)
@@ -1669,19 +1709,76 @@
       metalness: 0.15
     });
 
+    // ===== 고가/경사 구조물 상수 =====
+    const BRIDGE_MIN_Y = 1;        // 도로 높이가 이 값보다 높으면 "고가" 구간 (난간·교각 생성, 미니맵 밝게)
+    const BRIDGE_PILLAR_GAP = 30;  // 교각 기둥 간격 (유닛)
+    const RAIL_H = 1.2;            // 콘크리트 난간 높이
+    const SIDEWALK_W = 4;          // 급내리막 왼쪽 인도 폭
+    const SIDEWALK_H = 0.4;        // 인도 높이
+    const SLOPE_STEEP = 0.04;      // |기울기| 이 값 이상 = 램프 (경고 블록·인도 판정)
+    const trackStructures = new THREE.Group(); // 트랙 소속 구조물 (테마와 무관, 트랙 바꿀 때만 재생성)
+    scene.add(trackStructures);
+
+    function createWarningStripeTexture() {
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffd600';
+      ctx.fillRect(0, 0, 64, 64);
+      ctx.fillStyle = '#111';
+      for (let i = -64; i < 128; i += 32) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0); ctx.lineTo(i + 16, 0); ctx.lineTo(i + 80, 64); ctx.lineTo(i + 64, 64);
+        ctx.closePath(); ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+    const stripeMat = new THREE.MeshStandardMaterial({ map: createWarningStripeTexture(), roughness: 0.7 });
+    const concreteMat = pbrMaterial('concrete_tile_facade', 1, { color: 0xb8b8b8, roughness: 0.9 });
+    const pillarMat = pbrMaterial('concrete_tile_facade', 1, { color: 0xa0a0a0, roughness: 0.9 });
+    const guardMat = new THREE.MeshStandardMaterial({ color: 0xc0c8d0, metalness: 0.8, roughness: 0.35 });
+    const sidewalkMat = pbrMaterial('cobblestone_floor_08', 2, { color: 0xd8d8d8, roughness: 0.95 });
+
+    // quad (a1,b1)-(a2,b2) → two triangles into pos[] (+ uv[] if given)
+    function pushQuad(pos, a1, b1, a2, b2, uv, u0, u1, v1, v2) {
+      pos.push(a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, a2.x, a2.y, a2.z);
+      pos.push(b1.x, b1.y, b1.z, b2.x, b2.y, b2.z, a2.x, a2.y, a2.z);
+      if (uv) { uv.push(u0, v1, u1, v1, u0, v2); uv.push(u1, v1, u1, v2, u0, v2); }
+    }
+    function stripMesh(pos, mat, uv) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      if (uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mat);
+      m.receiveShadow = true;
+      return m;
+    }
+
     function buildTrackMesh() {
       for (const m of [roadMesh, cInMesh, cOutMesh]) {
         if (m) { scene.remove(m); m.geometry.dispose(); }
       }
+      trackStructures.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+      trackStructures.clear();
+
       const roadSegments = currentTrack.numWaypoints * 2;
       const uvRepeat = 45 * trackLength / OVAL_LENGTH; // 도로 텍스처 타일 밀도를 타원과 동일하게
-      const roadGeom = new THREE.BufferGeometry();
-      const curbInGeom = new THREE.BufferGeometry();
-      const curbOutGeom = new THREE.BufferGeometry();
       const posRoad = [], uvRoad = [];
       const posCIn = [], posCOut = [];
+      const posRailL = [], posRailR = [], uvRailL = [], uvRailR = [];
+      const posWalk = [], uvWalk = [];
+      const railPtsL = [], railPtsR = []; // 가드레일 튜브용 점 (고가 구간)
       const halfW = ROAD_WIDTH / 2;
       const curbW = 2.4;
+      const up = new THREE.Vector3(0, 0.02, 0);
+      const upC = new THREE.Vector3(0, 0.03, 0);
+      let pillarDist = BRIDGE_PILLAR_GAP;
+      const segLen = trackLength / roadSegments;
+      let wasBridge = false, wasSteep = 0;
 
       for (let i = 0; i <= roadSegments; i++) {
         const t1 = (i % roadSegments) / roadSegments;
@@ -1689,52 +1786,118 @@
         const p1 = getTrackPoint(t1);
         const p2 = getTrackPoint(t2);
 
-        const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
-        const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+        const dir = new THREE.Vector3().subVectors(p2, p1).setY(0).normalize();
+        const norm = new THREE.Vector3(-dir.z, 0, dir.x); // 진행 방향 기준 왼쪽
 
-        const l1 = p1.clone().addScaledVector(norm, -halfW);
-        const r1 = p1.clone().addScaledVector(norm, halfW);
-        const l2 = p2.clone().addScaledVector(norm, -halfW);
-        const r2 = p2.clone().addScaledVector(norm, halfW);
+        const l1 = p1.clone().addScaledVector(norm, -halfW).add(up);
+        const r1 = p1.clone().addScaledVector(norm, halfW).add(up);
+        const l2 = p2.clone().addScaledVector(norm, -halfW).add(up);
+        const r2 = p2.clone().addScaledVector(norm, halfW).add(up);
 
-        // Road positions
-        posRoad.push(l1.x, 0.02, l1.z, r1.x, 0.02, r1.z, l2.x, 0.02, l2.z);
-        posRoad.push(r1.x, 0.02, r1.z, r2.x, 0.02, r2.z, l2.x, 0.02, l2.z);
-
-        // Road UVs (0 at left, 1 at right, length repeats along track)
+        // Road (UV: 0 at left, 1 at right, length repeats along track)
         const v1 = t1 * uvRepeat;
         const v2 = (i === roadSegments - 1 ? 1 : t2) * uvRepeat; // 마지막 구간은 0으로 감기지 않게
-        uvRoad.push(0, v1,  1, v1,  0, v2);
-        uvRoad.push(1, v1,  1, v2,  0, v2);
+        pushQuad(posRoad, l1, r1, l2, r2, uvRoad, 0, 1, v1, v2);
 
         // Curbs (Inner & Outer)
-        const ci1 = l1.clone().addScaledVector(norm, -curbW);
-        const ci2 = l2.clone().addScaledVector(norm, -curbW);
-        posCIn.push(ci1.x, 0.03, ci1.z, l1.x, 0.03, l1.z, ci2.x, 0.03, ci2.z);
-        posCIn.push(l1.x, 0.03, l1.z, l2.x, 0.03, l2.z, ci2.x, 0.03, ci2.z);
+        const ci1 = l1.clone().addScaledVector(norm, -curbW).add(new THREE.Vector3(0, 0.01, 0));
+        const ci2 = l2.clone().addScaledVector(norm, -curbW).add(new THREE.Vector3(0, 0.01, 0));
+        const co1 = r1.clone().addScaledVector(norm, curbW).add(new THREE.Vector3(0, 0.01, 0));
+        const co2 = r2.clone().addScaledVector(norm, curbW).add(new THREE.Vector3(0, 0.01, 0));
+        pushQuad(posCIn, ci1, l1.clone().add(new THREE.Vector3(0, 0.01, 0)), ci2, l2.clone().add(new THREE.Vector3(0, 0.01, 0)));
+        pushQuad(posCOut, r1.clone().add(new THREE.Vector3(0, 0.01, 0)), co1, r2.clone().add(new THREE.Vector3(0, 0.01, 0)), co2);
 
-        const co1 = r1.clone().addScaledVector(norm, curbW);
-        const co2 = r2.clone().addScaledVector(norm, curbW);
-        posCOut.push(r1.x, 0.03, r1.z, co1.x, 0.03, co1.z, r2.x, 0.03, r2.z);
-        posCOut.push(co1.x, 0.03, co1.z, co2.x, 0.03, co2.z, r2.x, 0.03, r2.z);
+        if (i === roadSegments) break;
+        const slope = (p2.y - p1.y) / Math.max(0.001, distXZ(p1, p2));
+        const isBridge = p1.y > BRIDGE_MIN_Y;
+
+        // --- 고가 난간 (연석 바깥, 높이 RAIL_H) + 가드레일 점 ---
+        if (isBridge) {
+          const wallW = 0.6;
+          for (const [pos, uv, base1, base2, sign] of [[posRailR, uvRailR, co1, co2, 1], [posRailL, uvRailL, ci1, ci2, -1]]) {
+            const o1 = base1.clone().addScaledVector(norm, sign * wallW), o2 = base2.clone().addScaledVector(norm, sign * wallW);
+            const h = new THREE.Vector3(0, RAIL_H, 0);
+            pushQuad(pos, base1, base1.clone().add(h), base2, base2.clone().add(h), uv, 0, 0.3, v1 * 3, v2 * 3); // 안쪽 면
+            pushQuad(pos, o1.clone().add(h), o1, o2.clone().add(h), o2, uv, 0, 0.3, v1 * 3, v2 * 3);           // 바깥 면
+            pushQuad(pos, base1.clone().add(h), o1.clone().add(h), base2.clone().add(h), o2.clone().add(h), uv, 0, 0.15, v1 * 3, v2 * 3); // 윗면
+          }
+          if (i % 4 === 0) {
+            railPtsR.push(co1.clone().addScaledVector(norm, 0.3).add(new THREE.Vector3(0, RAIL_H, 0)));
+            railPtsL.push(ci1.clone().addScaledVector(norm, -0.3).add(new THREE.Vector3(0, RAIL_H, 0)));
+          }
+          // 교각 기둥 (도로 아래, 일정 간격)
+          pillarDist += segLen;
+          if (pillarDist >= BRIDGE_PILLAR_GAP) {
+            pillarDist = 0;
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, p1.y, 12), pillarMat);
+            pillar.position.set(p1.x, p1.y / 2, p1.z);
+            pillar.castShadow = true;
+            trackStructures.add(pillar);
+          }
+        } else if (wasBridge) {
+          flushGuardRails(railPtsL, railPtsR);
+        }
+        wasBridge = isBridge;
+
+        // --- 램프 시작/끝 경고 블록 (기울기가 SLOPE_STEEP 를 넘나드는 지점) ---
+        const steep = Math.abs(slope) >= SLOPE_STEEP ? Math.sign(slope) : 0;
+        if (steep !== wasSteep) {
+          for (const side of [-1, 1]) {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 2.4), stripeMat);
+            b.position.copy(p1).addScaledVector(norm, side * (halfW + curbW + 0.9)).add(new THREE.Vector3(0, 0.5, 0));
+            b.rotation.y = Math.atan2(dir.x, dir.z);
+            trackStructures.add(b);
+          }
+        }
+        wasSteep = steep;
+
+        // --- 급내리막 왼쪽 인도 (rebuildWaypoints 가 정한 waypoint 범위) ---
+        const sw = currentTrack.sidewalk;
+        if (sw) {
+          const wi = Math.floor(t1 * currentTrack.numWaypoints);
+          if (wi >= sw.from && wi <= sw.to) {
+            const h = new THREE.Vector3(0, SIDEWALK_H, 0);
+            const a1 = co1.clone().add(h), a2 = co2.clone().add(h);
+            const b1 = co1.clone().addScaledVector(norm, SIDEWALK_W).add(h), b2 = co2.clone().addScaledVector(norm, SIDEWALK_W).add(h);
+            pushQuad(posWalk, a1, b1, a2, b2, uvWalk, 0, 1, v1 * 2, v2 * 2);               // 윗면
+            pushQuad(posWalk, co1, a1, co2, a2, uvWalk, 0, 0.1, v1 * 2, v2 * 2);            // 도로 쪽 턱
+            pushQuad(posWalk, b1, b1.clone().sub(h), b2, b2.clone().sub(h), uvWalk, 0, 0.1, v1 * 2, v2 * 2); // 바깥 턱
+          }
+        }
       }
+      if (wasBridge) flushGuardRails(railPtsL, railPtsR);
 
-      roadGeom.setAttribute('position', new THREE.Float32BufferAttribute(posRoad, 3));
-      roadGeom.setAttribute('uv', new THREE.Float32BufferAttribute(uvRoad, 2));
-      roadGeom.computeVertexNormals();
-      roadMesh = new THREE.Mesh(roadGeom, roadMat);
-      roadMesh.receiveShadow = true;
+      roadMesh = stripMesh(posRoad, roadMat, uvRoad);
       scene.add(roadMesh);
-
-      curbInGeom.setAttribute('position', new THREE.Float32BufferAttribute(posCIn, 3));
-      curbInGeom.computeVertexNormals();
-      cInMesh = new THREE.Mesh(curbInGeom, curbMat);
+      cInMesh = stripMesh(posCIn, curbMat);
       scene.add(cInMesh);
-
-      curbOutGeom.setAttribute('position', new THREE.Float32BufferAttribute(posCOut, 3));
-      curbOutGeom.computeVertexNormals();
-      cOutMesh = new THREE.Mesh(curbOutGeom, curbMat);
+      cOutMesh = stripMesh(posCOut, curbMat);
       scene.add(cOutMesh);
+      if (posRailL.length) {
+        const rl = stripMesh(posRailL, concreteMat, uvRailL);
+        const rr = stripMesh(posRailR, concreteMat, uvRailR);
+        rl.material.side = rr.material.side = THREE.DoubleSide;
+        rl.castShadow = rr.castShadow = true;
+        trackStructures.add(rl, rr);
+      }
+      if (posWalk.length) {
+        const w = stripMesh(posWalk, sidewalkMat, uvWalk);
+        w.material.side = THREE.DoubleSide;
+        trackStructures.add(w);
+      }
+    }
+
+    // 고가 한 구간의 가드레일: 난간 위 금속 봉 2줄 × 양쪽
+    function flushGuardRails(ptsL, ptsR) {
+      for (const pts of [ptsL, ptsR]) {
+        if (pts.length < 2) continue;
+        for (const dy of [0.25, 0.55]) {
+          const curve = new THREE.CatmullRomCurve3(pts.map((p) => p.clone().add(new THREE.Vector3(0, dy, 0))));
+          const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, pts.length * 2, 0.08, 6, false), guardMat);
+          trackStructures.add(tube);
+        }
+      }
+      ptsL.length = 0; ptsR.length = 0;
     }
 
     // Finish Arch
@@ -2104,7 +2267,7 @@
         const baseV = idx * 12;
         const baseP = baseV * 3;
         const w = 0.22;
-        const y = 0.04;
+        const y = Math.max(leftStart.y, leftEnd.y) + 0.04; // 경사 도로 위에 붙게
 
         // Left quad
         const lx1 = leftStart.x, lz1 = leftStart.z;
@@ -3212,7 +3375,10 @@
         this.wheels = null;
 
         this.mesh = new THREE.Group();
+        this.mesh.rotation.order = 'YXZ'; // yaw(heading) → pitch(slope) → roll(drift tilt)
         scene.add(this.mesh);
+        this.groundSlope = 0; // 진행 방향 기울기 (양수 = 오르막), updateDistanceToTrack 이 갱신
+        this.onSidewalk = false;
 
         this.boosterFlame = createBoosterFlameMesh();
         this.mesh.add(this.boosterFlame.group);
@@ -3360,23 +3526,40 @@
 
         this.distFromCenter = minDist;
         const trackHalfW = ROAD_WIDTH / 2;
-        if (minDist > trackHalfW + 1.2) {
+
+        // --- 도로 높이/기울기 (XZ 투영, 높이는 판정에 안 씀) ---
+        const g = groundAt(this.pos, nearestIdx);
+        const headingVec = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
+        this.groundSlope = g.slope * headingVec.dot(g.dir); // 역주행이면 부호 반전
+        // 급내리막 왼쪽 인도: 도로 왼쪽 가장자리 바깥 SIDEWALK_W 폭은 거칠지만 달릴 수 있는 노면
+        const sw = currentTrack.sidewalk;
+        const leftNorm = new THREE.Vector3(-g.dir.z, 0, g.dir.x);
+        const lateral = new THREE.Vector3().subVectors(this.pos, waypoints[nearestIdx]).setY(0).dot(leftNorm);
+        this.onSidewalk = !!sw && nearestIdx >= sw.from && nearestIdx <= sw.to && lateral > trackHalfW && lateral <= trackHalfW + 2.4 + SIDEWALK_W;
+        const edge = trackHalfW + 1.2 + (this.onSidewalk ? 2.4 + SIDEWALK_W : 0);
+        const groundY = g.y + (this.onSidewalk ? SIDEWALK_H : 0);
+        this.pos.y = THREE.MathUtils.lerp(this.pos.y, groundY, GROUND_FOLLOW);
+
+        if (minDist > edge) {
           this.surfaceGrip = 0.45;
           this.surfaceTopSpeedRatio = 0.55;
+        } else if (this.onSidewalk) {
+          this.surfaceGrip = 0.7;
+          this.surfaceTopSpeedRatio = 0.9;
         } else {
-          this.surfaceGrip = 1.0;
+          this.surfaceGrip = this.groundSlope < -0.03 ? SLOPE_GRIP_DOWN : 1.0;
           this.surfaceTopSpeedRatio = 1.0;
         }
 
         // --- Smooth Continuous Wall Collision (No Stutter/Freezes) ---
-        if (minDist > trackHalfW + 1.2) {
+        if (minDist > edge) {
           const centerPt = waypoints[this.currentWaypointIdx];
           const toCenter = centerPt.clone().sub(this.pos);
           toCenter.y = 0;
           const normalInward = toCenter.normalize();
 
           // Smooth positional spring repulsion
-          const penetration = minDist - (trackHalfW + 1.2);
+          const penetration = minDist - edge;
           this.pos.addScaledVector(normalInward, penetration * 0.45);
 
           // Momentum deflection
@@ -3420,7 +3603,8 @@
         if (this.isBoosting) targetTopKmh = 250.0;
         else if (this.miniTurboTimer > 0) targetTopKmh = 200.0;
 
-        const effectiveTopKmh = targetTopKmh * this.surfaceTopSpeedRatio;
+        // 내리막이면 최고속 상한을 올려 실제로 더 빨라질 수 있게
+        const effectiveTopKmh = (targetTopKmh + Math.max(0, -this.groundSlope) * SLOPE_TOP_BONUS) * this.surfaceTopSpeedRatio;
         const effectiveTopUnits = effectiveTopKmh / KMH_PER_UNIT;
 
         // Shift-Drift
@@ -3506,7 +3690,8 @@
 
         const rollingDrag = 0.0018 * Math.sign(this.forwardSpeed);
         const aeroDrag = 0.010 * this.forwardSpeed * Math.abs(this.forwardSpeed);
-        this.forwardSpeed += (engineForce + brakeForce - (rollingDrag + aeroDrag));
+        const slopeForce = -this.groundSlope * (this.groundSlope < 0 ? SLOPE_GRAVITY_DOWN : SLOPE_GRAVITY_UP);
+        this.forwardSpeed += (engineForce + brakeForce + slopeForce - (rollingDrag + aeroDrag));
 
         if (this.forwardSpeed > effectiveTopUnits) {
           this.forwardSpeed = THREE.MathUtils.lerp(this.forwardSpeed, effectiveTopUnits, 0.12);
@@ -3535,6 +3720,9 @@
         this.mesh.position.copy(this.pos);
 
         this.mesh.rotation.y = this.heading + this.driftYawOffset;
+        // 경사에 맞춘 앞뒤 기울기 (오르막 = 코 들림). YXZ 순서라 드리프트 롤과 섞여도 안 깨짐
+        const pitch = THREE.MathUtils.clamp(-Math.atan(this.groundSlope), -KART_PITCH_MAX, KART_PITCH_MAX);
+        this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, pitch, 0.2);
         const rollTilt = THREE.MathUtils.clamp(-this.lateralSpeed * 0.45, -0.14, 0.14);
         this.mesh.rotation.z = rollTilt;
 
@@ -3955,6 +4143,18 @@
       }
       mmCtx.stroke();
 
+      // 고가 구간은 더 밝게
+      mmCtx.beginPath();
+      mmCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      let pen = false;
+      for (let i = 0; i <= n; i++) {
+        const wp = waypoints[i % n];
+        const x = centerX + wp.x * scaleX, y = centerY + wp.z * scaleZ;
+        if (wp.y > BRIDGE_MIN_Y) { if (pen) mmCtx.lineTo(x, y); else mmCtx.moveTo(x, y); pen = true; }
+        else if (pen) { mmCtx.lineTo(x, y); pen = false; }
+      }
+      mmCtx.stroke();
+
       if (DEBUG_TRACK) {
         mmCtx.fillStyle = '#7fffd4';
         mmCtx.font = '9px monospace';
@@ -4054,7 +4254,8 @@
         aiDrift = true;
         gas = 0.94;
       }
-      // 급커브 진입 전 감속 (U턴·S커브에서 벽에 박히지 않게)
+      // 내리막에서는 살짝 힘을 빼고, 급커브 진입 전 감속 (U턴·S커브에서 벽에 박히지 않게)
+      if (ai.groundSlope < -0.03 && aiKmh > 140) gas = 0.8;
       if (curveAhead > AI_CURVE_TIGHT && aiKmh > 105) {
         gas = 0.7;
         if (curveAhead > 0.6 && aiKmh > 130) brake = 1;
@@ -4110,6 +4311,9 @@
       ));
 
       camera.position.lerp(desiredCamPos, 0.32);
+      // 내리막에서 뒤쪽 도로가 카트보다 높다: 카메라가 땅을 뚫지 않게 뒤쪽 도로 높이 + 1.5 로 하한
+      const groundBehind = playerKart.pos.y - playerKart.groundSlope * baseDist;
+      if (camera.position.y < groundBehind + 1.5) camera.position.y = groundBehind + 1.5;
 
       const lookTarget = playerKart.pos.clone().add(new THREE.Vector3(
         Math.sin(playerKart.heading) * 4.5,
