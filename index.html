@@ -1212,6 +1212,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
     // --- YouTube Background Music Player (KartRider Awards Ceremony BGM: 2477y1EBpqU) ---
     let ytPlayer = null;
@@ -1394,14 +1395,17 @@
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
+    window.__game = { scene, renderer }; // test hook (tests/, screenshots)
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
     // Lights
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d7030, 0.7);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d7030, 0.35);
     scene.add(hemiLight);
 
     const dirLight = new THREE.DirectionalLight(0xfff7d6, 1.25);
@@ -1433,8 +1437,36 @@
     }
 
     // Ground Mesh
+    // --- Photo-real environment assets (Poly Haven, CC0 — see assets/CREDITS.md) ---
+    const pbrLoader = new THREE.TextureLoader();
+    const pbrCache = {};
+    // diffuse + normal map pair for assets/textures/<name>_{diff,nor}_1k.jpg, tiled `repeat` times per UV square
+    function pbrTextures(name, repeat) {
+      const key = `${name}:${repeat}`;
+      if (!pbrCache[key]) {
+        const load = (suffix, srgb) => {
+          const t = pbrLoader.load(`assets/textures/${name}_${suffix}_1k.jpg`);
+          t.wrapS = t.wrapT = THREE.RepeatWrapping;
+          t.repeat.set(repeat, repeat);
+          t.anisotropy = 4;
+          if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+          return t;
+        };
+        pbrCache[key] = { map: load('diff', true), normalMap: load('nor', false) };
+      }
+      return pbrCache[key];
+    }
+    function pbrMaterial(name, repeat, extra = {}) {
+      return new THREE.MeshStandardMaterial({ ...pbrTextures(name, repeat), roughness: 0.9, metalness: 0, ...extra });
+    }
+    // BoxGeometry maps every face to the full UV square; rescale so one texture tile = `tile` world units
+    function scaleBoxUV(geo, w, h, tile) {
+      const uv = geo.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / tile, uv.getY(i) * h / tile);
+    }
+
     const grassGeo = new THREE.PlaneGeometry(800, 800);
-    const grassMat = new THREE.MeshLambertMaterial({ color: 0x221133 });
+    let grassMat = pbrMaterial('leafy_grass', 90);
     const grassMesh = new THREE.Mesh(grassGeo, grassMat);
     grassMesh.rotation.x = -Math.PI / 2;
     grassMesh.receiveShadow = true;
@@ -1445,35 +1477,30 @@
 
     function createKartRiderRoadTexture() {
       const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
+      canvas.width = 1024;
+      canvas.height = 1024;
       const ctx = canvas.getContext('2d');
-
-      // Dark asphalt
-      ctx.fillStyle = '#3a4150';
-      ctx.fillRect(0, 0, 512, 512);
-
-      // Asphalt grain noise
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-      for (let i = 0; i < 800; i++) {
-        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
-      }
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-      for (let i = 0; i < 800; i++) {
-        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
-      }
-
-      // Outer White Edge Lines (solid & dashed)
-      ctx.fillStyle = '#f0f4f8';
-      ctx.fillRect(28, 0, 8, 512);
-      ctx.fillRect(476, 0, 8, 512);
-
-      // Double Solid Yellow Center Lines (KartRider Signature)
-      ctx.fillStyle = '#ffcc00';
-      ctx.fillRect(247, 0, 7, 512);
-      ctx.fillRect(258, 0, 7, 512);
-
       const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      function paint(asphalt) {
+        if (asphalt) ctx.drawImage(asphalt, 0, 0, 1024, 1024);
+        else { ctx.fillStyle = '#3a4150'; ctx.fillRect(0, 0, 1024, 1024); }
+        // Outer White Edge Lines
+        ctx.fillStyle = '#e8ecf0';
+        ctx.fillRect(56, 0, 16, 1024);
+        ctx.fillRect(952, 0, 16, 1024);
+        // Double Solid Yellow Center Lines (KartRider Signature)
+        ctx.fillStyle = '#f2c200';
+        ctx.fillRect(494, 0, 14, 1024);
+        ctx.fillRect(516, 0, 14, 1024);
+        tex.needsUpdate = true;
+      }
+      paint(null);
+      const img = new Image();
+      img.onload = () => paint(img);
+      img.src = 'assets/textures/asphalt_02_diff_1k.jpg';
+
       tex.wrapS = THREE.ClampToEdgeWrapping;
       tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(1, 45);
@@ -1506,10 +1533,15 @@
     const roadTexture = createKartRiderRoadTexture();
     const curbTexture = createKartRiderCurbTexture();
 
+    const roadNormal = pbrLoader.load('assets/textures/asphalt_02_nor_1k.jpg');
+    roadNormal.wrapS = THREE.ClampToEdgeWrapping;
+    roadNormal.wrapT = THREE.RepeatWrapping;
+    roadNormal.repeat.set(1, 45);
     const roadMat = new THREE.MeshStandardMaterial({
       map: roadTexture,
-      roughness: 0.85,
-      metalness: 0.1
+      normalMap: roadNormal,
+      roughness: 0.92,
+      metalness: 0
     });
     const curbMat = new THREE.MeshStandardMaterial({
       map: curbTexture,
@@ -1635,18 +1667,20 @@
     // Canvas texture generator for skyscraper windows
     function createBuildingTexture() {
       const c = document.createElement('canvas');
-      c.width = 128; c.height = 256;
+      c.width = 512; c.height = 512;
       const ctx = c.getContext('2d');
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(0, 0, 128, 256);
-      for (let y = 8; y < 250; y += 14) {
-        for (let x = 8; x < 120; x += 12) {
-          const lit = Math.random() > 0.4;
-          ctx.fillStyle = lit ? (Math.random() > 0.3 ? '#ffe082' : '#80d8ff') : '#1e293b';
-          ctx.fillRect(x, y, 7, 9);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 512, 512);
+      for (let y = 0; y < 512; y += 128) {       // one row of windows per facade tile (floor)
+        for (let x = 0; x < 512; x += 64) {      // two windows per tile
+          if (Math.random() < 0.45) continue;    // dark window
+          ctx.fillStyle = Math.random() > 0.3 ? '#ffd27a' : '#9ad8ff';
+          ctx.fillRect(x + 14, y + 30, 36, 60);
         }
       }
-      return new THREE.CanvasTexture(c);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
     }
     const bldgTexture = createBuildingTexture();
     bldgTexture.wrapS = THREE.RepeatWrapping;
@@ -1659,188 +1693,222 @@
     celestialMesh.position.set(220, 140, -250);
     scene.add(celestialMesh);
 
+    // --- HDRI sky + image-based lighting per theme ---
+    const HDRI = { witch: 'moonlit_golf', nyc: 'modern_buildings_night', joseon: 'kiara_8_sunset' };
+    const SKY_GAIN = { witch: 3.0, nyc: 1.8, joseon: 1.0 }; // night panoramas are dim; brighten the backdrop only
+    const hdriCache = {};
+    function applySky(themeKey) {
+      const name = HDRI[themeKey];
+      const use = (tex) => {
+        if (currentTheme !== themeKey) return;
+        scene.background = tex;
+        scene.backgroundIntensity = SKY_GAIN[themeKey];
+        scene.environment = tex;
+        celestialMesh.visible = false; // the panorama has its own moon / sun
+      };
+      if (hdriCache[name]) return use(hdriCache[name]);
+      new RGBELoader().load(`assets/hdri/${name}_1k.hdr`, (tex) => {
+        tex.mapping = THREE.EquirectangularReflectionMapping;
+        hdriCache[name] = tex;
+        use(tex);
+      });
+    }
+
+    // --- Photo-scanned props (Poly Haven gltf), loaded once, cloned per placement ---
+    const propLoader = new GLTFLoader();
+    const propCache = {};
+    // cb(clone) with the model scaled to `height` units and standing on y = 0
+    function withProp(name, height, cb) {
+      if (!propCache[name]) {
+        propCache[name] = new Promise((resolve) =>
+          propLoader.load(`assets/models/${name}/${name}_1k.gltf`, (g) => {
+            g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+            resolve(g.scene);
+          }));
+      }
+      propCache[name].then((src) => {
+        const inst = src.clone();
+        const box = new THREE.Box3().setFromObject(inst);
+        const k = height / (box.max.y - box.min.y);
+        inst.scale.setScalar(k);
+        inst.position.y = -box.min.y * k;
+        cb(inst);
+      });
+    }
+
+    function setGround(name, repeat, tint) {
+      grassMat = pbrMaterial(name, repeat, { color: tint });
+      grassMesh.material = grassMat;
+    }
+
+    // Walks the track and calls place(pos, norm, i) for each roadside slot on both sides
+    function forEachRoadside(count, offsets, place) {
+      for (let i = 0; i < count; i++) {
+        const t = i / count;
+        const pt = getTrackPoint(t);
+        const nextPt = getTrackPoint((t + 0.01) % 1);
+        const dir = nextPt.clone().sub(pt).normalize();
+        const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+        const dists = [ROAD_WIDTH / 2 + offsets[0] + Math.random() * offsets[1], -(ROAD_WIDTH / 2 + offsets[2] + Math.random() * offsets[3])];
+        for (const d of dists) place(pt.clone().addScaledVector(norm, d), norm, i);
+      }
+    }
+
     function applyTheme(themeKey) {
       currentTheme = themeKey;
       environmentGroup.clear();
+      // props arrive async: they attach to this group, which a later theme switch has already dropped
+      const group = new THREE.Group();
+      environmentGroup.add(group);
+      celestialMesh.visible = true;
+      applySky(themeKey);
 
       if (themeKey === 'witch') {
-        // --- 1. 마녀 도시 (Witch City) ---
-        scene.background = new THREE.Color(0x160528);
-        scene.fog = new THREE.Fog(0x1a0630, 90, 360);
-        hemiLight.color.setHex(0xb388ff);
-        hemiLight.groundColor.setHex(0x210042);
-        hemiLight.intensity = 0.65;
-        dirLight.color.setHex(0xd1c4e9);
-        dirLight.intensity = 1.1;
-
+        // --- 1. 마녀 도시 (Witch City): moonlit night ---
+        scene.background = new THREE.Color(0x0c0a18);
+        scene.fog = new THREE.Fog(0x141226, 90, 340);
+        renderer.toneMappingExposure = 0.85;
+        hemiLight.color.setHex(0x9c8ccf); hemiLight.groundColor.setHex(0x1a1030); hemiLight.intensity = 0.3;
+        dirLight.color.setHex(0xc5cae9); dirLight.intensity = 0.7;
         celestialMesh.material.color.setHex(0xffeb3b);
         celestialMesh.scale.set(1, 1, 1);
-        celestialMesh.visible = true;
 
-        grassMat.color.setHex(0x1e122b);
-        roadMat.color.setHex(0x241d33);
+        setGround('leafy_grass', 90, 0x8c86aa);
+        roadMat.color.setHex(0xb0b0c4);
 
-        // Gothic Spires, Spooky Dead Trees, Glowing Pumpkins
         const spireGeo = new THREE.ConeGeometry(2.5, 16, 6);
-        const spireMat = new THREE.MeshStandardMaterial({ color: 0x2a1b40, roughness: 0.7 });
+        const spireMat = pbrMaterial('dark_brick_wall', 3, { roughness: 0.95 });
         const treeGeo = new THREE.ConeGeometry(3.0, 7, 5);
-        const deadTrunkMat = new THREE.MeshLambertMaterial({ color: 0x3d2b1f });
+        const barkMat = pbrMaterial('bark_brown_02', 2, { color: 0x8a7a70 });
         const pumpkinGeo = new THREE.SphereGeometry(1.2, 8, 8);
-        const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xff6d00, emissive: 0xff3d00, emissiveIntensity: 0.35 });
+        const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xff6d00, emissive: 0xff3d00, emissiveIntensity: 0.6 });
 
-        for (let i = 0; i < 75; i++) {
-          const t = i / 75;
-          const pt = getTrackPoint(t);
-          const nextPt = getTrackPoint((t + 0.01) % 1);
-          const dir = nextPt.clone().sub(pt).normalize();
-          const norm = new THREE.Vector3(-dir.z, 0, dir.x);
-
-          const dists = [ROAD_WIDTH / 2 + 14 + Math.random() * 30, -(ROAD_WIDTH / 2 + 13 + Math.random() * 25)];
-          for (let d of dists) {
-            const pos = pt.clone().addScaledVector(norm, d);
-            const r = Math.random();
-            if (r < 0.4) {
-              // Gothic Spire
-              const spire = new THREE.Mesh(spireGeo, spireMat);
-              spire.position.set(pos.x, 8, pos.z);
-              spire.castShadow = true;
-              environmentGroup.add(spire);
-            } else if (r < 0.75) {
-              // Spooky Tree
-              const tree = new THREE.Mesh(treeGeo, deadTrunkMat);
-              tree.position.set(pos.x, 3.5, pos.z);
-              tree.scale.set(1, 1.4, 1);
-              environmentGroup.add(tree);
-            } else {
-              // Glowing Pumpkin
-              const p = new THREE.Mesh(pumpkinGeo, pumpkinMat);
-              p.position.set(pos.x, 1.2, pos.z);
-              environmentGroup.add(p);
-            }
+        forEachRoadside(75, [14, 30, 13, 25], (pos, norm, i) => {
+          const r = Math.random();
+          if (r < 0.35) {
+            const spire = new THREE.Mesh(spireGeo, spireMat);
+            spire.position.set(pos.x, 8, pos.z);
+            spire.castShadow = true;
+            group.add(spire);
+          } else if (r < 0.7) {
+            const tree = new THREE.Mesh(treeGeo, barkMat);
+            tree.position.set(pos.x, 3.5, pos.z);
+            tree.scale.set(1, 1.4, 1);
+            group.add(tree);
+          } else if (r < 0.85) {
+            const p = new THREE.Mesh(pumpkinGeo, pumpkinMat);
+            p.position.set(pos.x, 1.2, pos.z);
+            group.add(p);
+          } else if (r < 0.93) {
+            withProp('gothic_statue', 6, (m) => { m.position.x = pos.x; m.position.z = pos.z; m.rotation.y = Math.random() * Math.PI * 2; group.add(m); });
+          } else {
+            withProp('dead_tree_trunk', 1.6, (m) => { m.position.x = pos.x; m.position.z = pos.z; m.rotation.y = Math.random() * Math.PI * 2; group.add(m); });
           }
-        }
+        });
       } else if (themeKey === 'nyc') {
-        // --- 2. 뉴욕 도심 (NYC Metropolis) ---
-        scene.background = new THREE.Color(0x080f1d);
-        scene.fog = new THREE.Fog(0x0c1629, 100, 420);
-        hemiLight.color.setHex(0x82b1ff);
-        hemiLight.groundColor.setHex(0x1a233a);
-        hemiLight.intensity = 0.85;
-        dirLight.color.setHex(0xffffff);
-        dirLight.intensity = 1.35;
-
+        // --- 2. 뉴욕 도심 (NYC Metropolis): city night ---
+        scene.background = new THREE.Color(0x0a0f1c);
+        scene.fog = new THREE.Fog(0x0e1424, 110, 460);
+        renderer.toneMappingExposure = 1.0;
+        hemiLight.color.setHex(0x7fa0ff); hemiLight.groundColor.setHex(0x141a2a); hemiLight.intensity = 0.3;
+        dirLight.color.setHex(0xfff2d0); dirLight.intensity = 0.6;
         celestialMesh.material.color.setHex(0xffffff);
         celestialMesh.scale.set(0.6, 0.6, 0.6);
-        celestialMesh.visible = true;
 
-        grassMat.color.setHex(0x182030);
-        roadMat.color.setHex(0x1e222b);
+        setGround('asphalt_02', 70, 0x9098a8);
+        roadMat.color.setHex(0xb8bcc8);
 
-        // Skyscrapers & Street Lamps
+        const FACADE_TILE = 6; // world units per facade texture tile (~one floor)
+        const facade = pbrTextures('concrete_tile_facade', 4);
         const bldgMat = new THREE.MeshStandardMaterial({
-          map: bldgTexture,
-          roughness: 0.4,
-          metalness: 0.3
+          map: facade.map, normalMap: facade.normalMap,
+          color: 0xc8ccd4, roughness: 0.6, metalness: 0.2,
+          emissiveMap: bldgTexture, emissive: 0xffffff, emissiveIntensity: 1.6
         });
-        const lampPostGeo = new THREE.CylinderGeometry(0.3, 0.3, 7, 8);
-        const lampMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-        for (let i = 0; i < 70; i++) {
-          const t = i / 70;
-          const pt = getTrackPoint(t);
-          const nextPt = getTrackPoint((t + 0.01) % 1);
-          const dir = nextPt.clone().sub(pt).normalize();
-          const norm = new THREE.Vector3(-dir.z, 0, dir.x);
+        forEachRoadside(70, [18, 35, 16, 30], (pos, norm, i) => {
+          const bldgH = 25 + Math.random() * 45;
+          const bldgW = 10 + Math.random() * 12;
+          const bldgD = 10 + Math.random() * 12;
+          const bldgGeo = new THREE.BoxGeometry(bldgW, bldgH, bldgD);
+          scaleBoxUV(bldgGeo, bldgW, bldgH, FACADE_TILE * 4);
+          const bldg = new THREE.Mesh(bldgGeo, bldgMat);
+          bldg.position.set(pos.x, bldgH / 2, pos.z);
+          bldg.castShadow = true;
+          group.add(bldg);
 
-          const dists = [ROAD_WIDTH / 2 + 18 + Math.random() * 35, -(ROAD_WIDTH / 2 + 16 + Math.random() * 30)];
-          for (let d of dists) {
-            const pos = pt.clone().addScaledVector(norm, d);
-            const bldgH = 25 + Math.random() * 45;
-            const bldgW = 10 + Math.random() * 12;
-            const bldgD = 10 + Math.random() * 12;
-
-            const bldgGeo = new THREE.BoxGeometry(bldgW, bldgH, bldgD);
-            const bldg = new THREE.Mesh(bldgGeo, bldgMat);
-            bldg.position.set(pos.x, bldgH / 2, pos.z);
-            bldg.castShadow = true;
-            environmentGroup.add(bldg);
-
-            // Street Light
-            const lamp = new THREE.Mesh(lampPostGeo, lampMat);
-            lamp.position.set(pos.x - norm.x * 12, 3.5, pos.z - norm.z * 12);
-            environmentGroup.add(lamp);
+          if (i % 2 === 0) {
+            withProp('street_lamp_02', 9, (m) => {
+              m.position.x = pos.x - norm.x * 12; m.position.z = pos.z - norm.z * 12;
+              m.rotation.y = Math.atan2(norm.x, norm.z);
+              group.add(m);
+            });
           }
-        }
+        });
       } else if (themeKey === 'joseon') {
-        // --- 3. 조선시대 (Joseon Dynasty) ---
-        scene.background = new THREE.Color(0x38101a);
-        scene.fog = new THREE.Fog(0x421522, 90, 380);
-        hemiLight.color.setHex(0xffcc80);
-        hemiLight.groundColor.setHex(0x4e342e);
-        hemiLight.intensity = 0.9;
-        dirLight.color.setHex(0xffb74d);
-        dirLight.intensity = 1.4;
-
+        // --- 3. 조선시대 (Joseon Dynasty): sunset palace ---
+        scene.background = new THREE.Color(0x6a2c2a);
+        scene.fog = new THREE.Fog(0x8a4a3a, 100, 420);
+        renderer.toneMappingExposure = 1.05;
+        hemiLight.color.setHex(0xffd6a0); hemiLight.groundColor.setHex(0x5a3a2a); hemiLight.intensity = 0.35;
+        dirLight.color.setHex(0xffb070); dirLight.intensity = 1.0;
         celestialMesh.material.color.setHex(0xff5722);
         celestialMesh.scale.set(1.2, 1.2, 1.2);
-        celestialMesh.visible = true;
 
-        grassMat.color.setHex(0x543825);
-        roadMat.color.setHex(0x42362b);
+        setGround('cobblestone_floor_08', 110, 0xc8b8a4);
+        roadMat.color.setHex(0xc4b4a4);
 
-        // Hanok Pavilions, Pine Trees, Cheongsachorong (청사초롱)
         const roofGeo = new THREE.ConeGeometry(7, 3.5, 4);
         roofGeo.rotateY(Math.PI / 4);
-        const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b303a, roughness: 0.5 });
-        const pillarMat = new THREE.MeshLambertMaterial({ color: 0x8b2500 });
-        const pineLeafMat = new THREE.MeshLambertMaterial({ color: 0x2e5a36 });
-        const lanternGeo = new THREE.CylinderGeometry(0.8, 0.8, 1.8, 8);
-        const lanternMatRed = new THREE.MeshBasicMaterial({ color: 0xff1744 });
-        const lanternMatBlue = new THREE.MeshBasicMaterial({ color: 0x2979ff });
+        const roofMat = pbrMaterial('grey_roof_tiles_02', 3, { roughness: 0.8 });
+        const wallGeo = new THREE.BoxGeometry(5.6, 5.5, 5.6);
+        scaleBoxUV(wallGeo, 5.6, 5.5, 4);
+        const wallMat = pbrMaterial('plastered_stone_wall', 1, { color: 0xe8dcc8 });
+        const pillarMat = new THREE.MeshStandardMaterial({ color: 0x8b2500, roughness: 0.7 });
+        const pineLeafMat = new THREE.MeshStandardMaterial({ color: 0x2e5a36, roughness: 1 });
+        const pineTrunkGeo = new THREE.CylinderGeometry(0.5, 0.7, 4, 8);
+        const pineTrunkMat = pbrMaterial('pine_bark', 1, { color: 0xa08878 });
+        const glowGeo = new THREE.SphereGeometry(0.5, 8, 8);
+        const glowRed = new THREE.MeshBasicMaterial({ color: 0xff5a4a });
+        const glowBlue = new THREE.MeshBasicMaterial({ color: 0x6ab0ff });
 
-        for (let i = 0; i < 70; i++) {
-          const t = i / 70;
-          const pt = getTrackPoint(t);
-          const nextPt = getTrackPoint((t + 0.01) % 1);
-          const dir = nextPt.clone().sub(pt).normalize();
-          const norm = new THREE.Vector3(-dir.z, 0, dir.x);
-
-          const dists = [ROAD_WIDTH / 2 + 15 + Math.random() * 28, -(ROAD_WIDTH / 2 + 14 + Math.random() * 25)];
-          for (let d of dists) {
-            const pos = pt.clone().addScaledVector(norm, d);
-            const r = Math.random();
-            if (r < 0.35) {
-              // Hanok Pavilion
-              const pav = new THREE.Group();
-              const roof = new THREE.Mesh(roofGeo, roofMat);
-              roof.position.y = 7.5;
-              roof.castShadow = true;
-              pav.add(roof);
-
-              for (let px of [-3, 3]) {
-                for (let pz of [-3, 3]) {
-                  const pil = new THREE.Mesh(poleGeo, pillarMat);
-                  pil.scale.set(0.8, 0.7, 0.8);
-                  pil.position.set(px, 3, pz);
-                  pav.add(pil);
-                }
-              }
-              pav.position.set(pos.x, 0, pos.z);
-              environmentGroup.add(pav);
-            } else if (r < 0.75) {
-              // Pine Tree
-              const pine = new THREE.Mesh(new THREE.ConeGeometry(3.5, 8, 6), pineLeafMat);
-              pine.position.set(pos.x, 4.5, pos.z);
-              environmentGroup.add(pine);
-            } else {
-              // Cheongsachorong Lantern
-              const isRed = Math.random() > 0.5;
-              const lant = new THREE.Mesh(lanternGeo, isRed ? lanternMatRed : lanternMatBlue);
-              lant.position.set(pos.x - norm.x * 10, 2.5, pos.z - norm.z * 10);
-              environmentGroup.add(lant);
+        forEachRoadside(70, [15, 28, 14, 25], (pos, norm, i) => {
+          const r = Math.random();
+          if (r < 0.35) {
+            const pav = new THREE.Group();
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.y = 7.5;
+            roof.castShadow = true;
+            pav.add(roof);
+            const wall = new THREE.Mesh(wallGeo, wallMat);
+            wall.position.y = 2.75;
+            pav.add(wall);
+            for (const px of [-3, 3]) for (const pz of [-3, 3]) {
+              const pil = new THREE.Mesh(poleGeo, pillarMat);
+              pil.scale.set(0.8, 0.7, 0.8);
+              pil.position.set(px, 3, pz);
+              pav.add(pil);
             }
+            pav.position.set(pos.x, 0, pos.z);
+            group.add(pav);
+          } else if (r < 0.75) {
+            const pine = new THREE.Group();
+            const trunk = new THREE.Mesh(pineTrunkGeo, pineTrunkMat);
+            trunk.position.y = 2;
+            const leaves = new THREE.Mesh(new THREE.ConeGeometry(3.5, 8, 6), pineLeafMat);
+            leaves.position.y = 7;
+            leaves.castShadow = true;
+            pine.add(trunk, leaves);
+            pine.position.set(pos.x, 0, pos.z);
+            group.add(pine);
+          } else {
+            const lx = pos.x - norm.x * 10, lz = pos.z - norm.z * 10;
+            withProp('Lantern_01', 2.6, (m) => { m.position.x = lx; m.position.z = lz; group.add(m); });
+            const glow = new THREE.Mesh(glowGeo, Math.random() > 0.5 ? glowRed : glowBlue);
+            glow.position.set(lx, 1.5, lz);
+            group.add(glow);
           }
-        }
+        });
       }
     }
 
