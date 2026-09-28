@@ -67,6 +67,16 @@ async function runTrack(browser, trackId) {
   const stuck = await page.evaluate(() => window.__game.allKarts.filter(k => !k.isPlayer && k.lap < 2).map(k => `${k.name}@wp${k.currentWaypointIdx}`));
   record(true, `AI still on lap 1: ${stuck.length ? stuck.join(', ') : 'none'}`);
 
+  // Every theme must build on this track without errors (props are re-placed along the road)
+  const themes = await page.$$eval('.theme-card[data-theme]', els => els.map(e => e.getAttribute('data-theme')));
+  for (const th of themes) {
+    const before = errors.length;
+    await page.$eval(`.theme-card[data-theme="${th}"]`, e => e.click());
+    await page.evaluate(() => window.__game.step(60));
+    const propCount = await page.evaluate(() => { let n = 0; window.__game.scene.traverse(o => { if (o.isMesh) n++; }); return n; });
+    record(errors.length === before, `theme ${th} on ${trackId}: ${propCount} meshes, ${errors.length - before} new errors`);
+  }
+
   record(!errors.length, `page errors: ${errors.length ? errors.join(' | ') : 'none'}`);
   await ctx.close();
   return results;

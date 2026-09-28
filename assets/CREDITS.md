@@ -11,6 +11,7 @@ Downloaded 2026-09-27 at 1k resolution via the Poly Haven API.
 | 마녀 도시 (Witch City) | `moonlit_golf_1k.hdr` | https://polyhaven.com/a/moonlit_golf |
 | 뉴욕 도심 (NYC) | `modern_buildings_night_1k.hdr` | https://polyhaven.com/a/modern_buildings_night |
 | 조선시대 (Joseon) | `kiara_8_sunset_1k.hdr` | https://polyhaven.com/a/kiara_8_sunset |
+| 빌리지 (Village, 낮) | `kloofendal_48d_partly_cloudy_puresky_1k.hdr` | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky (CC0, 2026-09-29 추가) |
 
 ## PBR textures (`assets/textures/`, diffuse + GL normal map)
 
@@ -25,6 +26,10 @@ Downloaded 2026-09-27 at 1k resolution via the Poly Haven API.
 | `grey_roof_tiles_02` | Joseon hanok roofs |
 | `cobblestone_floor_08` | Joseon ground |
 | `pine_bark` | Joseon pine trunks |
+| `concrete_tile_facade` | overpass parapets and pillars (Village Highway track) |
+| `cobblestone_floor_08` | downhill sidewalk (Village Highway track) |
+
+Village-theme buildings, trees, bunting, curve signs and the start gate are generated in code (no downloaded assets).
 
 ## Photo-scanned props (`assets/models/<name>/`, glTF + textures)
 
