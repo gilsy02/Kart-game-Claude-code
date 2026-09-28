@@ -23,7 +23,7 @@
       top: 0; left: 0; width: 100vw; height: 100vh;
       pointer-events: none;
       z-index: 5;
-      background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0, 229, 255, 0.2) 72%, rgba(255, 23, 68, 0.48) 100%);
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0, 229, 255, 0.2) 72%, rgba(101, 31, 255, 0.48) 100%);
       opacity: 0;
       transition: opacity 0.18s ease-out;
     }
@@ -362,6 +362,18 @@
       height: 100%;
       background: linear-gradient(90deg, #ff9100 0%, #ff1744 70%, #ff5252 100%);
       box-shadow: 0 0 10px #ff1744;
+      transition: width 0.05s linear;
+    }
+    /* Blue bar under N2O: remaining boost while one is burning */
+    .n2o-bar-label.boost {
+      color: #40c4ff;
+      text-shadow: 0 0 8px rgba(41, 121, 255, 0.9);
+    }
+    #booster-gauge-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #00e5ff 0%, #2979ff 60%, #651fff 100%);
+      box-shadow: 0 0 10px #2979ff;
       transition: width 0.05s linear;
     }
 
@@ -1101,6 +1113,12 @@
           <div id="drift-gauge-fill"></div>
         </div>
       </div>
+      <div class="n2o-bar-container">
+        <span class="n2o-bar-label boost">BOOST</span>
+        <div class="n2o-bar-track">
+          <div id="booster-gauge-fill"></div>
+        </div>
+      </div>
       <div class="speedo-gauge-wrap">
         <svg class="speedo-svg" viewBox="0 0 200 80">
           <path class="speedo-bg-arc" d="M 25,75 A 75,75 0 0,1 175,75" />
@@ -1380,6 +1398,7 @@
     let startTime = 0;
     let finalTimeStr = '';
     const TOTAL_LAPS = 3;
+    const BOOSTER_DURATION = 3.2; // seconds an N2O boost lasts; drives boosterTimer and the BOOST gauge
     const TRACK_RADIUS_X = 140;
     const TRACK_RADIUS_Z = 75;
     const ROAD_WIDTH = 22;
@@ -2653,17 +2672,30 @@
       const g = new THREE.Group();
       const coreGeo = new THREE.ConeGeometry(0.24, 1.4, 8);
       coreGeo.rotateX(-Math.PI / 2);
-      const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending });
+      // Blue combustion flame: white-sky core -> deep blue body -> violet tip
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0xe0ffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending });
       const core = new THREE.Mesh(coreGeo, coreMat);
       core.position.z = -0.7;
 
+      const midGeo = new THREE.ConeGeometry(0.32, 1.8, 8);
+      midGeo.rotateX(-Math.PI / 2);
+      const midMat = new THREE.MeshBasicMaterial({ color: 0x40c4ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+      const mid = new THREE.Mesh(midGeo, midMat);
+      mid.position.z = -0.9;
+
       const outerGeo = new THREE.ConeGeometry(0.42, 2.2, 8);
       outerGeo.rotateX(-Math.PI / 2);
-      const outerMat = new THREE.MeshBasicMaterial({ color: 0xff3d00, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending });
+      const outerMat = new THREE.MeshBasicMaterial({ color: 0x2979ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
       const outer = new THREE.Mesh(outerGeo, outerMat);
       outer.position.z = -1.1;
 
-      g.add(core, outer);
+      const tipGeo = new THREE.ConeGeometry(0.3, 1.2, 8);
+      tipGeo.rotateX(-Math.PI / 2);
+      const tipMat = new THREE.MeshBasicMaterial({ color: 0x651fff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending });
+      const tip = new THREE.Mesh(tipGeo, tipMat);
+      tip.position.z = -2.0;
+
+      g.add(core, mid, outer, tip);
       return g;
     }
 
@@ -3113,7 +3145,7 @@
         if (this.boosters > 0 && !this.isBoosting) {
           this.boosters--;
           this.isBoosting = true;
-          this.boosterTimer = 3.2;
+          this.boosterTimer = BOOSTER_DURATION;
           if (this.isPlayer) engineAudio.playBoostSound();
         }
       }
@@ -3924,6 +3956,11 @@
       const driftFill = document.getElementById('drift-gauge-fill');
       if (driftFill) {
         driftFill.style.width = `${Math.min(playerKart.driftGauge, 100)}%`;
+      }
+      const boostFill = document.getElementById('booster-gauge-fill');
+      if (boostFill) {
+        const left = playerKart.isBoosting ? playerKart.boosterTimer / BOOSTER_DURATION : 0;
+        boostFill.style.width = `${Math.max(0, Math.min(left, 1)) * 100}%`;
       }
 
       // Dual Red N2O Booster Cards (Top-Left)
