@@ -1076,8 +1076,8 @@
         <span id="hud-lap-val">1</span><span class="hud-lap-total">/ 3</span>
       </div>
       <div class="hud-timing-card">
-        <div class="timing-row"><span class="timing-lbl">LAP+</span><span class="timing-val" id="hud-lap-time">00:00:00</span></div>
-        <div class="timing-row"><span class="timing-lbl">TIME</span><span class="timing-val" id="hud-time-val">00:00:00</span></div>
+        <div class="timing-row"><span class="timing-lbl">LAP+</span><span class="timing-val" id="hud-lap-time">00:00.00</span></div>
+        <div class="timing-row"><span class="timing-lbl">TIME</span><span class="timing-val" id="hud-time-val">00:00.00</span></div>
         <div class="timing-row"><span class="timing-lbl">BEST</span><span class="timing-val">00:20:90</span></div>
       </div>
       <div class="hud-top-actions">
@@ -3099,6 +3099,7 @@
         // Progress
         this.currentWaypointIdx = 0;
         this.lap = 1;
+        this.lapStartTime = 0; // 0 = lap 1, falls back to race startTime
         this.checkpointsPassed = 0; // 1: 25%, 2: 50%, 3: 75%
         this.lapProgress = 0;
         this.totalProgress = 0;
@@ -3149,6 +3150,7 @@
         this.boosters = 1;
         this.currentWaypointIdx = 0;
         this.lap = 1;
+        this.lapStartTime = 0; // 0 = lap 1, falls back to race startTime
         this.checkpointsPassed = 0; // 1: 25%, 2: 50%, 3: 75%
         this.lapProgress = 0;
         this.totalProgress = 0;
@@ -3188,6 +3190,7 @@
           // Only complete a lap if player drove through all 3 checkpoints of the track
           if (this.checkpointsPassed >= 3) {
             this.lap++;
+            this.lapStartTime = performance.now();
             this.checkpointsPassed = 0;
             if (this.lap > TOTAL_LAPS) {
               this.finished = true;
@@ -3545,8 +3548,8 @@
       currentRankedKarts.forEach((k, idx) => {
         const row = document.createElement('div');
         row.className = `rush-row rank-${idx + 1} ${k.isPlayer ? 'is-player' : ''}`;
-        const timeDisplay = k.finishTime > 0 ? formatTime(k.finishTime) : (idx === 0 ? finalTimeStr : '+00:02:45');
-        const diffText = idx === 0 ? 'RECORDS' : `+00:0${idx}:` + (15 * idx + 23);
+        const timeDisplay = k.finishTime > 0 ? formatTime(k.finishTime) : (idx === 0 ? finalTimeStr : '+00:02.45');
+        const diffText = idx === 0 ? 'RECORDS' : `+00:0${idx}.` + (15 * idx + 23);
         const kartName = kartNames[idx] || kartFallback;
 
         row.innerHTML = `
@@ -3959,12 +3962,12 @@
       const lapTimeEl = document.getElementById('hud-lap-time');
       if (timeValEl) {
         if (gameState === 'RACING') {
-          const elapsed = (performance.now() - startTime) / 1000;
-          timeValEl.textContent = formatTime(elapsed);
-          if (lapTimeEl) lapTimeEl.textContent = formatTime(elapsed * 0.45);
+          const now = performance.now();
+          timeValEl.textContent = formatTime(now - startTime);
+          if (lapTimeEl) lapTimeEl.textContent = formatTime(now - (playerKart.lapStartTime || startTime));
         } else if (gameState === 'START') {
-          timeValEl.textContent = '00:00:00';
-          if (lapTimeEl) lapTimeEl.textContent = '00:00:00';
+          timeValEl.textContent = '00:00.00';
+          if (lapTimeEl) lapTimeEl.textContent = '00:00.00';
         }
       }
 
