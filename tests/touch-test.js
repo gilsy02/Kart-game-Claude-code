@@ -29,6 +29,9 @@ async function runLang(browser, lang) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
+  // THREE_LOCAL=<three package dir> serves three.js from disk when the CDN is unreachable
+  if (process.env.THREE_LOCAL) await page.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\//, route =>
+    route.fulfill({ path: path.join(process.env.THREE_LOCAL, route.request().url().split(/three@[^/]+\//)[1].split('?')[0]), contentType: 'text/javascript' }));
   const cdp = await ctx.newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
   const active = () => page.$$eval('.touch-btn.active', els => els.map(e => e.id.replace('btn-touch-', '')).sort().join(','));
@@ -54,6 +57,9 @@ async function runLang(browser, lang) {
   await langBtn.tap();
   const startText = await text('#start-btn');
   record(startText === LANGS[lang].start, `language applied: start button "${startText}"`);
+  const hintShown = await page.$eval('.touch-hint', e => getComputedStyle(e).display !== 'none' && e.textContent.includes('DRIFT'));
+  const kbHintHidden = await page.$eval('.controls-hint', e => getComputedStyle(e).display === 'none');
+  record(hintShown && kbHintHidden, `touch control hint shown, keyboard hint hidden`);
   const fsLabel = await text('#fs-btn-start');
   record(fsLabel.includes('[F]') && (lang === 'kr') === /[가-힣]/.test(fsLabel), `fullscreen button in ${lang}: "${fsLabel}"`);
 
@@ -71,7 +77,11 @@ async function runLang(browser, lang) {
   record(lang === 'kr' ? /[가-힣]/.test(idleBubble) : !/[가-힣]/.test(idleBubble), `bubble in ${lang}: "${idleBubble}"`);
 
   const L = await center('#btn-touch-left'), R = await center('#btn-touch-right');
-  const gas = await center('#btn-touch-gas'), brake = await center('#btn-touch-brake'), n2o = await center('#btn-touch-boost');
+  const drift = await center('#btn-touch-drift'), n2o = await center('#btn-touch-boost');
+  record(!(await page.$('#btn-touch-gas')) && !(await page.$('#btn-touch-brake')), `no gas / brake pedals on touch layout`);
+  const kmh = () => page.evaluate(() => Math.round(window.__game.allKarts[0].forwardSpeed * 216));
+  const step = n => page.evaluate(n => window.__game.step(n), n);
+  const reversing = () => page.$eval('#btn-touch-drift', e => e.classList.contains('reversing'));
   const gapMid = (L.b.x + L.b.width + R.b.x) / 2;
 
   // Slide steering
@@ -83,10 +93,32 @@ async function runLang(browser, lang) {
   await touch('touchMove', [[422, 150]]);               await check('slide off to screen middle', '');
   await touch('touchEnd', []);                           await check('release', '');
 
-  // Two fingers: steer + pedal, slide pedal finger gas -> brake
-  await touch('touchStart', [[L.x, L.y], [gas.x, gas.y]]);   await check('left + gas', 'gas,left');
-  await touch('touchMove', [[L.x, L.y], [brake.x, brake.y]]); await check('slide gas -> brake', 'brake,left');
-  await touch('touchEnd', []);                                 await check('release both', '');
+  // Two fingers: steer + drift
+  await touch('touchStart', [[L.x, L.y], [drift.x, drift.y]]); await check('left + drift', 'drift,left');
+  await touch('touchEnd', []);                                   await check('release both', '');
+
+  // Auto accelerate: no button held, the kart still drives off
+  await step(45);
+  const autoKmh = await kmh();
+  record(autoKmh > 40, `auto accelerate with no buttons: ${autoKmh} km/h after 45 frames`);
+  // Long-press DRIFT without steering: brake, then reverse until released.
+  // Kept within the first ~120 frames: after that the kart reaches the first curve and hits the wall.
+  await touch('touchStart', [[drift.x, drift.y]]);
+  await step(30);
+  record(!(await reversing()) && (await kmh()) > 60, `DRIFT held 30 frames: still driving (${await kmh()} km/h)`);
+  await step(40);
+  record(await reversing(), `DRIFT held 70 frames: reverse mode on`);
+  await step(120);
+  const revKmh = await kmh();
+  record(revKmh < 0, `reversing: ${revKmh} km/h`);
+  await touch('touchEnd', []);
+  await step(60);
+  record(!(await reversing()) && (await kmh()) > revKmh + 20, `DRIFT released: forward again (${await kmh()} km/h)`);
+  // DRIFT + steering never enters reverse
+  await touch('touchStart', [[L.x, L.y], [drift.x, drift.y]]);
+  await step(120);
+  record(!(await reversing()), `DRIFT + steer 120 frames: no reverse`);
+  await touch('touchEnd', []);
 
   // N2O tap starts boost
   const readyBefore = await page.$eval('#booster-card-1', e => e.classList.contains('ready'));
@@ -104,7 +136,10 @@ async function runLang(browser, lang) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  // PW_CHROME=<path> runs another Chromium build (e.g. a sandbox without Google Chrome)
+  const launch = { channel: 'chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+  if (process.env.PW_CHROME) { delete launch.channel; launch.executablePath = process.env.PW_CHROME; }
+  const browser = await chromium.launch(launch);
   const results = [];
   for (const lang of Object.keys(LANGS)) results.push(...await runLang(browser, lang));
   console.log(results.join('\n'));

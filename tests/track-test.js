@@ -25,6 +25,9 @@ async function runTrack(browser, trackId) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
+  // THREE_LOCAL=<three package dir> serves three.js from disk when the CDN is unreachable
+  if (process.env.THREE_LOCAL) await page.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\//, route =>
+    route.fulfill({ path: path.join(process.env.THREE_LOCAL, route.request().url().split(/three@[^/]+\//)[1].split('?')[0]), contentType: 'text/javascript' }));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|net::|youtube/i.test(m.text())) errors.push(m.text()); });
   const results = [];
   const record = (ok, msg) => results.push(`${ok ? 'PASS' : 'FAIL'} [${trackId}] ${msg}`);
@@ -83,7 +86,10 @@ async function runTrack(browser, trackId) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  // PW_CHROME=<path> runs another Chromium build (e.g. a sandbox without Google Chrome)
+  const launch = { channel: 'chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] };
+  if (process.env.PW_CHROME) { delete launch.channel; launch.executablePath = process.env.PW_CHROME; }
+  const browser = await chromium.launch(launch);
   const results = [];
   for (const id of ['oval', 'village_highway']) results.push(...await runTrack(browser, id));
   console.log(results.join('\n'));

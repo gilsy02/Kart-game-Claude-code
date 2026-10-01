@@ -10,6 +10,9 @@
   - Environment (Poly Haven CC0): `assets/hdri/`, `assets/textures/`, `assets/models/` — sources in `assets/CREDITS.md`
 - Target Environment: Three.js, WebGL, Web Audio API, Responsive (Desktop/Mobile)
 - Tests: `npm test` = `tests/touch-test.js` (mobile touch, 3 languages) + `tests/track-test.js` (both tracks: start, AI lap 2, elevation, all themes). Headless Chrome with software GL is slow: run one test at a time, use DOM `el.click()` not Playwright clicks, and dump the minimap canvas instead of full-page screenshots.
+  Env overrides: `PW_CHROME=<chromium path>` when Google Chrome is not installed, `THREE_LOCAL=<unpacked three@0.160.0 package dir>` when the jsDelivr CDN is unreachable (`npm pack three@0.160.0`).
+- Touch layout (`#mobile-touch-layer` media query: coarse pointer or width <= 900px) has no pedals: `updatePlayer()` forces gas on, and holding
+  DRIFT with no steering for `TOUCH_REVERSE_HOLD` frames brakes then reverses (`.reversing` on the DRIFT button) until released.
 
 All kart game enhancements, bug fixes, and feature additions belong in this directory.
 

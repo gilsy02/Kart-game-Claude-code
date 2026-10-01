@@ -465,10 +465,21 @@
       display: none; /* Shown on mobile/touch screens */
       z-index: 50;
     }
+    .touch-hint {
+      display: none;
+      margin-top: 14px;
+      font-size: 13px;
+      color: #bbb;
+      text-align: center;
+      line-height: 1.6;
+    }
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-touch-layer {
         display: block;
       }
+      /* Touch devices drive themselves: show the touch hint instead of the keyboard one */
+      .controls-hint { display: none; }
+      .touch-hint { display: block; }
     }
     /* Only while driving: keep the buttons off the start and podium screens */
     body:not(.racing) #mobile-touch-layer {
@@ -521,35 +532,27 @@
       gap: 14px;
     }
     .touch-btn-drift {
-      width: 66px; height: 66px;
+      width: 80px; height: 80px;
       background: linear-gradient(135deg, #00b0ff, #0081cb);
       border-color: #80d8ff;
       font-size: 13px;
       box-shadow: 0 0 15px rgba(0, 176, 255, 0.6);
     }
     .touch-btn-boost {
-      width: 66px; height: 66px;
+      width: 80px; height: 80px;
       background: linear-gradient(135deg, #ff1744, #d50000);
       border-color: #ffeb3b;
       font-size: 15px;
       box-shadow: 0 0 15px rgba(255, 23, 68, 0.7);
     }
-    .touch-pedal-row {
-      display: flex;
-      gap: 14px;
-    }
-    .touch-btn-gas {
-      width: 68px; height: 68px;
-      background: linear-gradient(135deg, #00e676, #00a152);
-      font-size: 24px;
-      border-color: #b9f6ca;
-    }
-    .touch-btn-brake {
-      width: 62px; height: 62px;
+    /* Long-press DRIFT without steering: brake, then reverse (touch has no pedals) */
+    .touch-btn-drift.reversing {
       background: linear-gradient(135deg, #ff9100, #c66900);
-      font-size: 22px;
       border-color: #ffe57f;
+      box-shadow: 0 0 15px rgba(255, 145, 0, 0.7);
     }
+    .touch-btn-drift.reversing::before { content: 'REV'; }
+    .touch-btn-drift.reversing span { display: none; }
 
     /* --- Authentic KartRider Rush+ Podium Leaderboard UI --- */
     #podium-screen {
@@ -1145,12 +1148,8 @@
     </div>
     <div id="touch-right-cluster">
       <div class="touch-action-row">
-        <button class="touch-btn touch-btn-drift" id="btn-touch-drift">DRIFT</button>
+        <button class="touch-btn touch-btn-drift" id="btn-touch-drift"><span>DRIFT</span></button>
         <button class="touch-btn touch-btn-boost" id="btn-touch-boost">N2O</button>
-      </div>
-      <div class="touch-pedal-row">
-        <button class="touch-btn touch-btn-gas" id="btn-touch-gas">▲</button>
-        <button class="touch-btn touch-btn-brake" id="btn-touch-brake">▼</button>
       </div>
     </div>
   </div>
@@ -1225,6 +1224,7 @@
       <strong>[↑] / [W]</strong> 가속 (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> 감속 / 후진 &nbsp;|&nbsp; <strong>[←][→]</strong> 조향<br>
       <strong>[SHIFT]</strong> 드리프트 & 순간부스터 (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O 부스터 점화 (250 km/h)
     </div>
+    <div class="touch-hint"></div>
   </div>
 
   <!-- Podium Ceremony Screen -->
@@ -1323,6 +1323,7 @@
         fsBtn: (on) => on ? '⛶ 전체화면 해제 [F]' : '⛶ 전체화면 [F]',
         driftLabel: 'DRIFT GAUGE',
         cockpitHint: '[SHIFT] 드리프트 | [SPACE] 250km/h 부스터',
+        touchHint: '가속은 자동 &nbsp;|&nbsp; <strong>◀ ▶</strong> 조향 &nbsp;|&nbsp; <strong>DRIFT</strong> 드리프트 & 순간부스터<br><strong>N2O</strong> 부스터 점화 &nbsp;|&nbsp; 조향 없이 <strong>DRIFT</strong>를 1초 이상 누르면 브레이크 / 후진',
         emptySlot: '비어있음',
         rankSuffix: ['위', '위', '위', '위'],
         goText: '출발!',
@@ -1374,6 +1375,7 @@
         fsBtn: (on) => on ? '⛶ Exit Fullscreen [F]' : '⛶ Fullscreen [F]',
         driftLabel: 'DRIFT GAUGE',
         cockpitHint: '[SHIFT] Drift | [SPACE] 250km/h Nitro Boost',
+        touchHint: 'Auto accelerate &nbsp;|&nbsp; <strong>◀ ▶</strong> Steer &nbsp;|&nbsp; <strong>DRIFT</strong> Drift & Mini-Turbo<br><strong>N2O</strong> Nitro Boost &nbsp;|&nbsp; Hold <strong>DRIFT</strong> for 1s without steering to brake / reverse',
         emptySlot: 'EMPTY',
         rankSuffix: ['st', 'nd', 'rd', 'th'],
         goText: 'GO!',
@@ -1425,6 +1427,7 @@
         fsBtn: (on) => on ? '⛶ Salir de pantalla completa [F]' : '⛶ Pantalla completa [F]',
         driftLabel: 'INDICADOR DERRAPE',
         cockpitHint: '[SHIFT] Derrape | [SPACE] 250km/h Nitro Turbo',
+        touchHint: 'Aceleración automática &nbsp;|&nbsp; <strong>◀ ▶</strong> Dirección &nbsp;|&nbsp; <strong>DRIFT</strong> Derrape y Mini-Turbo<br><strong>N2O</strong> Impulso Nitro &nbsp;|&nbsp; Mantén <strong>DRIFT</strong> 1 s sin girar para frenar / reversa',
         emptySlot: 'VACÍO',
         rankSuffix: ['.°', '.°', '.°', '.°'],
         goText: '¡VAMOS!',
@@ -4076,6 +4079,8 @@
 
       const hintEl = document.querySelector('.controls-hint');
       if (hintEl) hintEl.innerHTML = dict.controlsHint;
+      const touchHintEl = document.querySelector('.touch-hint');
+      if (touchHintEl) touchHintEl.innerHTML = dict.touchHint;
 
       // HUD
       const lapLbl = document.getElementById('hud-lap-lbl');
@@ -4399,6 +4404,15 @@
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
     }
 
+    // Touch layouts (the #mobile-touch-layer media query) have no pedals: the kart always
+    // accelerates, and holding DRIFT without steering for TOUCH_REVERSE_HOLD frames brakes,
+    // then reverses, until DRIFT is released (the escape when stuck against a wall).
+    const TOUCH_REVERSE_HOLD = 60;
+    const touchLayerEl = document.getElementById('mobile-touch-layer');
+    const touchDriftBtn = document.getElementById('btn-touch-drift');
+    let touchReverseHold = 0, touchReversing = false;
+    function isTouchLayout() { return getComputedStyle(touchLayerEl).display !== 'none'; }
+
     function updatePlayer() {
       let gas = 0;
       let brake = 0;
@@ -4412,7 +4426,22 @@
         if (keys['ArrowLeft'] || keys['KeyA']) steer += 1;
         if (keys['ArrowRight'] || keys['KeyD']) steer -= 1;
         if (keys['ShiftLeft'] || keys['ShiftRight']) drift = true;
+
+        if (isTouchLayout()) {
+          gas = 1;
+          if (!drift) { touchReverseHold = 0; touchReversing = false; }
+          else if (!touchReversing) {
+            touchReverseHold = (steer === 0 && !playerKart.isDrifting) ? touchReverseHold + 1 : 0;
+            if (touchReverseHold >= TOUCH_REVERSE_HOLD) touchReversing = true;
+          }
+          if (touchReversing) { gas = 0; brake = 1; drift = false; }
+        } else {
+          touchReverseHold = 0; touchReversing = false;
+        }
+      } else {
+        touchReverseHold = 0; touchReversing = false;
       }
+      touchDriftBtn.classList.toggle('reversing', touchReversing);
 
       playerKart.applyPhysics(gas, brake, steer, drift, boost);
     }
@@ -4627,8 +4656,6 @@
       const BTN_KEYS = {
         'btn-touch-left': 'ArrowLeft',
         'btn-touch-right': 'ArrowRight',
-        'btn-touch-gas': 'ArrowUp',
-        'btn-touch-brake': 'ArrowDown',
         'btn-touch-drift': 'ShiftLeft',
         'btn-touch-boost': 'Space',
       };
