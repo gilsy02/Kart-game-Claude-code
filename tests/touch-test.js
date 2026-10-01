@@ -61,7 +61,7 @@ async function runLang(browser, lang) {
   const kbHintHidden = await page.$eval('.controls-hint', e => getComputedStyle(e).display === 'none');
   record(hintShown && kbHintHidden, `touch control hint shown, keyboard hint hidden`);
   const fsLabel = await text('#fs-btn-start');
-  record(fsLabel.includes('[F]') && (lang === 'kr') === /[가-힣]/.test(fsLabel), `fullscreen button in ${lang}: "${fsLabel}"`);
+  record(!fsLabel.includes('[F]') && (lang === 'kr') === /[가-힣]/.test(fsLabel), `fullscreen button in ${lang} without key tag: "${fsLabel}"`);
 
   // Headless can't really go fullscreen: stub the request and check START asks for it on touch devices
   await page.evaluate(() => { document.documentElement.requestFullscreen = () => { window.__fsRequested = true; return Promise.resolve(); }; });
@@ -75,6 +75,10 @@ async function runLang(browser, lang) {
   record(await layerDisplay() === 'block', `touch buttons shown while racing`);
   const idleBubble = await text('#hud-speech-bubble');
   record(lang === 'kr' ? /[가-힣]/.test(idleBubble) : !/[가-힣]/.test(idleBubble), `bubble in ${lang}: "${idleBubble}"`);
+  const soundLabel = await text('#hud-audio-btn');
+  const noKeys = str => !/\[(SPACE|SHIFT|M|F)\]/.test(str);
+  record(idleBubble.includes('N2O') && noKeys(idleBubble) && noKeys(soundLabel),
+    `touch labels name buttons, not keys: bubble "${idleBubble}", sound "${soundLabel}"`);
 
   const L = await center('#btn-touch-left'), R = await center('#btn-touch-right');
   const drift = await center('#btn-touch-drift'), n2o = await center('#btn-touch-boost');

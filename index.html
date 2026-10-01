@@ -4041,6 +4041,16 @@
       }
     }
 
+    // Touch layouts (the #mobile-touch-layer media query) have buttons, not keys: HUD strings
+    // name the DRIFT / N2O buttons instead of [SHIFT] / [SPACE] and drop the [M] / [F] key tags.
+    // Same query as the #mobile-touch-layer CSS; the layer itself is hidden outside races, so test the query
+    const TOUCH_LAYOUT_QUERY = matchMedia('(pointer: coarse), (max-width: 900px)');
+    function isTouchLayout() { return TOUCH_LAYOUT_QUERY.matches; }
+    function touchLabel(str) {
+      if (!isTouchLayout()) return str;
+      return str.replace(/\[SPACE\]/g, '[N2O]').replace(/\[SHIFT\]/g, '[DRIFT]').replace(/ \[[MF]\]$/, '');
+    }
+
     function setLanguage(lang) {
       if (!I18N[lang]) return;
       currentLang = lang;
@@ -4086,13 +4096,13 @@
       const lapLbl = document.getElementById('hud-lap-lbl');
       if (lapLbl) lapLbl.textContent = dict.lapLabel;
       const isSoundOn = !engineAudio.muted;
-      hudAudioBtn.textContent = dict.soundBtn(isSoundOn);
+      hudAudioBtn.textContent = touchLabel(dict.soundBtn(isSoundOn));
 
       const driftLbl = document.querySelector('.drift-gauge-header span:first-child');
       if (driftLbl) driftLbl.textContent = dict.driftLabel;
 
       const cockHint = document.getElementById('cockpit-hint-text');
-      if (cockHint) cockHint.textContent = dict.cockpitHint;
+      if (cockHint) cockHint.textContent = touchLabel(dict.cockpitHint);
 
       // Podium Screen
       const ceremonyTitleEl = document.getElementById('ceremony-title-text');
@@ -4207,7 +4217,7 @@
       }
       if (e.code === 'KeyM') {
         const isSoundOn = engineAudio.toggleMute();
-        hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
+        hudAudioBtn.textContent = touchLabel(I18N[currentLang].soundBtn(isSoundOn));
       }
       if (e.code === 'KeyF') toggleFullscreen();
       if (e.code === 'Space' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
@@ -4232,7 +4242,7 @@
 
     hudAudioBtn.addEventListener('click', () => {
       const isSoundOn = engineAudio.toggleMute();
-      hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
+      hudAudioBtn.textContent = touchLabel(I18N[currentLang].soundBtn(isSoundOn));
     });
 
     // --- Fullscreen (desktop: button / [F]; touch: also auto on START, plus landscape lock) ---
@@ -4241,7 +4251,7 @@
     const fsButtons = document.querySelectorAll('.fs-btn');
     const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
     function updateFullscreenLabels() {
-      const label = I18N[currentLang].fsBtn(isFullscreen());
+      const label = touchLabel(I18N[currentLang].fsBtn(isFullscreen()));
       fsButtons.forEach((b) => { b.textContent = label; b.hidden = !fsSupported; });
     }
     function enterFullscreen() {
@@ -4408,10 +4418,8 @@
     // accelerates, and holding DRIFT without steering for TOUCH_REVERSE_HOLD frames brakes,
     // then reverses, until DRIFT is released (the escape when stuck against a wall).
     const TOUCH_REVERSE_HOLD = 60;
-    const touchLayerEl = document.getElementById('mobile-touch-layer');
     const touchDriftBtn = document.getElementById('btn-touch-drift');
     let touchReverseHold = 0, touchReversing = false;
-    function isTouchLayout() { return getComputedStyle(touchLayerEl).display !== 'none'; }
 
     function updatePlayer() {
       let gas = 0;
@@ -4609,10 +4617,10 @@
       const bubbleEl = document.getElementById('hud-speech-bubble');
       if (bubbleEl) {
         const b = I18N[currentLang].bubble;
-        bubbleEl.textContent = playerKart.isBoosting ? b.boost
+        bubbleEl.textContent = touchLabel(playerKart.isBoosting ? b.boost
           : playerKart.isDrifting ? b.drift
           : playerKart.boosters > 0 ? b.ready
-          : b.idle;
+          : b.idle);
       }
 
       // Top-Left Rank Position
