@@ -465,10 +465,21 @@
       display: none; /* Shown on mobile/touch screens */
       z-index: 50;
     }
+    .touch-hint {
+      display: none;
+      margin-top: 14px;
+      font-size: 13px;
+      color: #bbb;
+      text-align: center;
+      line-height: 1.6;
+    }
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-touch-layer {
         display: block;
       }
+      /* Touch devices drive themselves: show the touch hint instead of the keyboard one */
+      .controls-hint { display: none; }
+      .touch-hint { display: block; }
     }
     /* Only while driving: keep the buttons off the start and podium screens */
     body:not(.racing) #mobile-touch-layer {
@@ -521,35 +532,27 @@
       gap: 14px;
     }
     .touch-btn-drift {
-      width: 66px; height: 66px;
+      width: 80px; height: 80px;
       background: linear-gradient(135deg, #00b0ff, #0081cb);
       border-color: #80d8ff;
       font-size: 13px;
       box-shadow: 0 0 15px rgba(0, 176, 255, 0.6);
     }
     .touch-btn-boost {
-      width: 66px; height: 66px;
+      width: 80px; height: 80px;
       background: linear-gradient(135deg, #ff1744, #d50000);
       border-color: #ffeb3b;
       font-size: 15px;
       box-shadow: 0 0 15px rgba(255, 23, 68, 0.7);
     }
-    .touch-pedal-row {
-      display: flex;
-      gap: 14px;
-    }
-    .touch-btn-gas {
-      width: 68px; height: 68px;
-      background: linear-gradient(135deg, #00e676, #00a152);
-      font-size: 24px;
-      border-color: #b9f6ca;
-    }
-    .touch-btn-brake {
-      width: 62px; height: 62px;
+    /* Long-press DRIFT without steering: brake, then reverse (touch has no pedals) */
+    .touch-btn-drift.reversing {
       background: linear-gradient(135deg, #ff9100, #c66900);
-      font-size: 22px;
       border-color: #ffe57f;
+      box-shadow: 0 0 15px rgba(255, 145, 0, 0.7);
     }
+    .touch-btn-drift.reversing::before { content: 'REV'; }
+    .touch-btn-drift.reversing span { display: none; }
 
     /* --- Authentic KartRider Rush+ Podium Leaderboard UI --- */
     #podium-screen {
@@ -1145,12 +1148,8 @@
     </div>
     <div id="touch-right-cluster">
       <div class="touch-action-row">
-        <button class="touch-btn touch-btn-drift" id="btn-touch-drift">DRIFT</button>
+        <button class="touch-btn touch-btn-drift" id="btn-touch-drift"><span>DRIFT</span></button>
         <button class="touch-btn touch-btn-boost" id="btn-touch-boost">N2O</button>
-      </div>
-      <div class="touch-pedal-row">
-        <button class="touch-btn touch-btn-gas" id="btn-touch-gas">▲</button>
-        <button class="touch-btn touch-btn-brake" id="btn-touch-brake">▼</button>
       </div>
     </div>
   </div>
@@ -1191,6 +1190,11 @@
           <div class="theme-name">빌리지 고가의 질주</div>
           <div class="theme-desc">긴 고가도로 직선과 급내리막, 마지막 U턴</div>
         </div>
+        <div class="theme-card" data-track="palace_circuit">
+          <div class="theme-icon">🏯</div>
+          <div class="theme-name">조선 고궁 서킷</div>
+          <div class="theme-desc">헤어핀 2개와 성곽 고갯길, 연속 S커브의 기술 코스</div>
+        </div>
       </div>
     </div>
 
@@ -1225,6 +1229,7 @@
       <strong>[↑] / [W]</strong> 가속 (150 km/h) &nbsp;|&nbsp; <strong>[↓] / [S]</strong> 감속 / 후진 &nbsp;|&nbsp; <strong>[←][→]</strong> 조향<br>
       <strong>[SHIFT]</strong> 드리프트 & 순간부스터 (200 km/h) &nbsp;|&nbsp; <strong>[SPACE]</strong> N2O 부스터 점화 (250 km/h)
     </div>
+    <div class="touch-hint"></div>
   </div>
 
   <!-- Podium Ceremony Screen -->
@@ -1295,7 +1300,8 @@
         selectTrack: '🏁 트랙을 선택하세요 🏁',
         tracks: {
           oval: { name: '기본 서킷', desc: '완만한 타원형 코스, 드리프트 연습에 딱' },
-          village_highway: { name: '빌리지 고가의 질주', desc: '긴 고가도로 직선과 급내리막, 마지막 U턴' }
+          village_highway: { name: '빌리지 고가의 질주', desc: '긴 고가도로 직선과 급내리막, 마지막 U턴' },
+          palace_circuit: { name: '조선 고궁 서킷', desc: '헤어핀 2개와 성곽 고갯길, 연속 S커브의 기술 코스' }
         },
         themes: {
           witch: {
@@ -1323,6 +1329,7 @@
         fsBtn: (on) => on ? '⛶ 전체화면 해제 [F]' : '⛶ 전체화면 [F]',
         driftLabel: 'DRIFT GAUGE',
         cockpitHint: '[SHIFT] 드리프트 | [SPACE] 250km/h 부스터',
+        touchHint: '가속은 자동 &nbsp;|&nbsp; <strong>◀ ▶</strong> 조향 &nbsp;|&nbsp; <strong>DRIFT</strong> 드리프트 & 순간부스터<br><strong>N2O</strong> 부스터 점화 &nbsp;|&nbsp; 조향 없이 <strong>DRIFT</strong>를 1초 이상 누르면 브레이크 / 후진',
         emptySlot: '비어있음',
         rankSuffix: ['위', '위', '위', '위'],
         goText: '출발!',
@@ -1346,7 +1353,8 @@
         selectTrack: '🏁 Select Track 🏁',
         tracks: {
           oval: { name: 'Basic Circuit', desc: 'Gentle oval loop, perfect for drift practice' },
-          village_highway: { name: 'Village Highway Run', desc: 'Long overpass straight, steep downhill, final hairpin' }
+          village_highway: { name: 'Village Highway Run', desc: 'Long overpass straight, steep downhill, final hairpin' },
+          palace_circuit: { name: 'Palace Circuit', desc: 'Technical course: two hairpins, a fortress-wall hill and chained S-bends' }
         },
         themes: {
           witch: {
@@ -1374,6 +1382,7 @@
         fsBtn: (on) => on ? '⛶ Exit Fullscreen [F]' : '⛶ Fullscreen [F]',
         driftLabel: 'DRIFT GAUGE',
         cockpitHint: '[SHIFT] Drift | [SPACE] 250km/h Nitro Boost',
+        touchHint: 'Auto accelerate &nbsp;|&nbsp; <strong>◀ ▶</strong> Steer &nbsp;|&nbsp; <strong>DRIFT</strong> Drift & Mini-Turbo<br><strong>N2O</strong> Nitro Boost &nbsp;|&nbsp; Hold <strong>DRIFT</strong> for 1s without steering to brake / reverse',
         emptySlot: 'EMPTY',
         rankSuffix: ['st', 'nd', 'rd', 'th'],
         goText: 'GO!',
@@ -1397,7 +1406,8 @@
         selectTrack: '🏁 Selecciona la Pista 🏁',
         tracks: {
           oval: { name: 'Circuito Básico', desc: 'Óvalo suave, ideal para practicar derrapes' },
-          village_highway: { name: 'Carrera del Viaducto', desc: 'Larga recta elevada, bajada empinada y horquilla final' }
+          village_highway: { name: 'Carrera del Viaducto', desc: 'Larga recta elevada, bajada empinada y horquilla final' },
+          palace_circuit: { name: 'Circuito del Palacio', desc: 'Trazado técnico: dos horquillas, una cuesta sobre la muralla y eses encadenadas' }
         },
         themes: {
           witch: {
@@ -1425,6 +1435,7 @@
         fsBtn: (on) => on ? '⛶ Salir de pantalla completa [F]' : '⛶ Pantalla completa [F]',
         driftLabel: 'INDICADOR DERRAPE',
         cockpitHint: '[SHIFT] Derrape | [SPACE] 250km/h Nitro Turbo',
+        touchHint: 'Aceleración automática &nbsp;|&nbsp; <strong>◀ ▶</strong> Dirección &nbsp;|&nbsp; <strong>DRIFT</strong> Derrape y Mini-Turbo<br><strong>N2O</strong> Impulso Nitro &nbsp;|&nbsp; Mantén <strong>DRIFT</strong> 1 s sin girar para frenar / reversa',
         emptySlot: 'VACÍO',
         rankSuffix: ['.°', '.°', '.°', '.°'],
         goText: '¡VAMOS!',
@@ -1509,6 +1520,39 @@
         defaultTheme: 'village',
         laps: 3,
         podium: [300, -100], // 루프 안쪽, 도로에서 떨어진 자리
+      },
+      palace_circuit: {
+        id: 'palace_circuit',
+        // 조선 고궁 서킷: 기술형 코스. 출발 직선 → 좌회전 → 성곽 고갯길(최고 8m) 오르막 → 넓은 헤어핀 → 내리막 S자
+        // → 짧은 직선 → 헤어핀 → 연속 S커브 → 마지막 좌회전 → 골인. 긴 직선이 없어 드리프트 기회가 많다.
+        controlPoints: [
+          [   0,    0,  0],   // P0  출발/골인선, +x 방향
+          [ 153,    0,  0],   // P1  출발 직선 끝
+          [ 216,  -22,  0],   // P2  1번 코너 (좌회전, 북쪽으로)
+          [ 243,  -81,  0],   // P3
+          [ 234, -144,  3],   // P4  성곽 고갯길 오르막 시작
+          [ 270, -198,  6],   // P5
+          [ 342, -216,  8],   // P6  고개 정상, 넓은 헤어핀 진입
+          [ 387, -171,  8],   // P7  헤어핀 (우회전 180°)
+          [ 378, -108,  6],   // P8  내리막 시작
+          [ 324,  -81,  3],   // P9  내리막 S자 (1)
+          [ 306,  -18,  0],   // P10 내리막 바닥, S자 (2)
+          [ 342,   36,  0],   // P11 짧은 직선
+          [ 378,   99,  0],   // P12 2번 헤어핀 진입
+          [ 342,  153,  0],   // P13 헤어핀 (우회전 180°)
+          [ 270,  162,  0],   // P14
+          [ 225,  117,  0],   // P15 헤어핀 탈출, 서쪽으로
+          [ 180,   81,  0],   // P16 연속 S커브 (1)
+          [ 117,  108,  0],   // P17 연속 S커브 (2)
+          [  54,  144,  0],   // P18 연속 S커브 (3)
+          [ -18,  117,  0],   // P19 마지막 코너 진입
+          [ -45,   54,  0],   // P20 마지막 좌회전
+          [ -27,    9,  0],   // P21 골인선을 향해 +x
+        ],
+        numWaypoints: 230,   // 길이 약 1,530 유닛 → 간격 약 6.6
+        defaultTheme: 'joseon',
+        laps: 3,
+        podium: [120, -60],  // 출발 직선 북쪽 마당, 도로에서 60 유닛 이상 떨어진 자리
       },
     };
     const OVAL_LENGTH = 705; // 기존 타원 둘레(유닛). 길가 소품 밀도 기준값
@@ -4038,6 +4082,16 @@
       }
     }
 
+    // Touch layouts (the #mobile-touch-layer media query) have buttons, not keys: HUD strings
+    // name the DRIFT / N2O buttons instead of [SHIFT] / [SPACE] and drop the [M] / [F] key tags.
+    // Same query as the #mobile-touch-layer CSS; the layer itself is hidden outside races, so test the query
+    const TOUCH_LAYOUT_QUERY = matchMedia('(pointer: coarse), (max-width: 900px)');
+    function isTouchLayout() { return TOUCH_LAYOUT_QUERY.matches; }
+    function touchLabel(str) {
+      if (!isTouchLayout()) return str;
+      return str.replace(/\[SPACE\]/g, '[N2O]').replace(/\[SHIFT\]/g, '[DRIFT]').replace(/ \[[MF]\]$/, '');
+    }
+
     function setLanguage(lang) {
       if (!I18N[lang]) return;
       currentLang = lang;
@@ -4076,18 +4130,20 @@
 
       const hintEl = document.querySelector('.controls-hint');
       if (hintEl) hintEl.innerHTML = dict.controlsHint;
+      const touchHintEl = document.querySelector('.touch-hint');
+      if (touchHintEl) touchHintEl.innerHTML = dict.touchHint;
 
       // HUD
       const lapLbl = document.getElementById('hud-lap-lbl');
       if (lapLbl) lapLbl.textContent = dict.lapLabel;
       const isSoundOn = !engineAudio.muted;
-      hudAudioBtn.textContent = dict.soundBtn(isSoundOn);
+      hudAudioBtn.textContent = touchLabel(dict.soundBtn(isSoundOn));
 
       const driftLbl = document.querySelector('.drift-gauge-header span:first-child');
       if (driftLbl) driftLbl.textContent = dict.driftLabel;
 
       const cockHint = document.getElementById('cockpit-hint-text');
-      if (cockHint) cockHint.textContent = dict.cockpitHint;
+      if (cockHint) cockHint.textContent = touchLabel(dict.cockpitHint);
 
       // Podium Screen
       const ceremonyTitleEl = document.getElementById('ceremony-title-text');
@@ -4202,7 +4258,7 @@
       }
       if (e.code === 'KeyM') {
         const isSoundOn = engineAudio.toggleMute();
-        hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
+        hudAudioBtn.textContent = touchLabel(I18N[currentLang].soundBtn(isSoundOn));
       }
       if (e.code === 'KeyF') toggleFullscreen();
       if (e.code === 'Space' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
@@ -4227,7 +4283,7 @@
 
     hudAudioBtn.addEventListener('click', () => {
       const isSoundOn = engineAudio.toggleMute();
-      hudAudioBtn.textContent = I18N[currentLang].soundBtn(isSoundOn);
+      hudAudioBtn.textContent = touchLabel(I18N[currentLang].soundBtn(isSoundOn));
     });
 
     // --- Fullscreen (desktop: button / [F]; touch: also auto on START, plus landscape lock) ---
@@ -4236,7 +4292,7 @@
     const fsButtons = document.querySelectorAll('.fs-btn');
     const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
     function updateFullscreenLabels() {
-      const label = I18N[currentLang].fsBtn(isFullscreen());
+      const label = touchLabel(I18N[currentLang].fsBtn(isFullscreen()));
       fsButtons.forEach((b) => { b.textContent = label; b.hidden = !fsSupported; });
     }
     function enterFullscreen() {
@@ -4399,6 +4455,13 @@
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
     }
 
+    // Touch layouts (the #mobile-touch-layer media query) have no pedals: the kart always
+    // accelerates, and holding DRIFT without steering for TOUCH_REVERSE_HOLD frames brakes,
+    // then reverses, until DRIFT is released (the escape when stuck against a wall).
+    const TOUCH_REVERSE_HOLD = 60;
+    const touchDriftBtn = document.getElementById('btn-touch-drift');
+    let touchReverseHold = 0, touchReversing = false;
+
     function updatePlayer() {
       let gas = 0;
       let brake = 0;
@@ -4412,7 +4475,22 @@
         if (keys['ArrowLeft'] || keys['KeyA']) steer += 1;
         if (keys['ArrowRight'] || keys['KeyD']) steer -= 1;
         if (keys['ShiftLeft'] || keys['ShiftRight']) drift = true;
+
+        if (isTouchLayout()) {
+          gas = 1;
+          if (!drift) { touchReverseHold = 0; touchReversing = false; }
+          else if (!touchReversing) {
+            touchReverseHold = (steer === 0 && !playerKart.isDrifting) ? touchReverseHold + 1 : 0;
+            if (touchReverseHold >= TOUCH_REVERSE_HOLD) touchReversing = true;
+          }
+          if (touchReversing) { gas = 0; brake = 1; drift = false; }
+        } else {
+          touchReverseHold = 0; touchReversing = false;
+        }
+      } else {
+        touchReverseHold = 0; touchReversing = false;
       }
+      touchDriftBtn.classList.toggle('reversing', touchReversing);
 
       playerKart.applyPhysics(gas, brake, steer, drift, boost);
     }
@@ -4580,10 +4658,10 @@
       const bubbleEl = document.getElementById('hud-speech-bubble');
       if (bubbleEl) {
         const b = I18N[currentLang].bubble;
-        bubbleEl.textContent = playerKart.isBoosting ? b.boost
+        bubbleEl.textContent = touchLabel(playerKart.isBoosting ? b.boost
           : playerKart.isDrifting ? b.drift
           : playerKart.boosters > 0 ? b.ready
-          : b.idle;
+          : b.idle);
       }
 
       // Top-Left Rank Position
@@ -4627,8 +4705,6 @@
       const BTN_KEYS = {
         'btn-touch-left': 'ArrowLeft',
         'btn-touch-right': 'ArrowRight',
-        'btn-touch-gas': 'ArrowUp',
-        'btn-touch-brake': 'ArrowDown',
         'btn-touch-drift': 'ShiftLeft',
         'btn-touch-boost': 'Space',
       };
