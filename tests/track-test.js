@@ -51,11 +51,13 @@ async function runTrack(browser, trackId) {
   });
   const wantN = await page.evaluate(id => window.__game.tracks[id].numWaypoints, trackId);
   record(wp.n === wantN, `waypoint count ${wp.n} (want ${wantN})`);
-  if (trackId === 'village_highway' && wp.elevation > 0) record(wp.maxY >= 13 && wp.minY === 0, `elevation range ${wp.minY}..${wp.maxY.toFixed(1)} (want 0..>=13)`);
+  const wantMaxY = { village_highway: 13, palace_circuit: 7 }[trackId];
+  if (wantMaxY && wp.elevation > 0) record(wp.maxY >= wantMaxY && wp.minY === 0, `elevation range ${wp.minY}..${wp.maxY.toFixed(1)} (want 0..>=${wantMaxY})`);
   else record(wp.maxY === 0 && wp.minY === 0, `flat track (y 0..${wp.maxY})`);
 
   await page.$eval('#start-btn', e => e.click());
-  await page.waitForFunction(() => window.__game.getState() === 'RACING', null, { timeout: 15000 });
+  // 60 s: the 3-2-1 countdown runs on 1 s timers that a slow software renderer can stretch several times over
+  await page.waitForFunction(() => window.__game.getState() === 'RACING', null, { timeout: 60000 });
   record(true, 'race started');
 
   // Drive the AI forward in chunks until one of them finishes lap 1
@@ -91,7 +93,12 @@ async function runTrack(browser, trackId) {
   if (process.env.PW_CHROME) { delete launch.channel; launch.executablePath = process.env.PW_CHROME; }
   const browser = await chromium.launch(launch);
   const results = [];
-  for (const id of ['oval', 'village_highway']) results.push(...await runTrack(browser, id));
+  // TRACKS=oval,palace_circuit limits the run to those tracks (argv[2] is the game dir)
+  const ids = process.env.TRACKS ? process.env.TRACKS.split(',') : ['oval', 'village_highway', 'palace_circuit'];
+  for (const id of ids) {
+    try { results.push(...await runTrack(browser, id)); }
+    catch (e) { results.push(`FAIL [${id}] test aborted: ${e.message.split('\n')[0]}`); } // keep checking the other tracks
+  }
   console.log(results.join('\n'));
   const fails = results.filter(r => r.startsWith('FAIL')).length;
   console.log(`${results.length - fails}/${results.length} passed`);

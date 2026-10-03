@@ -9,7 +9,7 @@
   - Custom GLB Models: `models/`
   - Environment (Poly Haven CC0): `assets/hdri/`, `assets/textures/`, `assets/models/` — sources in `assets/CREDITS.md`
 - Target Environment: Three.js, WebGL, Web Audio API, Responsive (Desktop/Mobile)
-- Tests: `npm test` = `tests/touch-test.js` (mobile touch, 3 languages) + `tests/track-test.js` (both tracks: start, AI lap 2, elevation, all themes). Headless Chrome with software GL is slow: run one test at a time, use DOM `el.click()` not Playwright clicks, and dump the minimap canvas instead of full-page screenshots.
+- Tests: `npm test` = `tests/touch-test.js` (mobile touch, 3 languages) + `tests/track-test.js` (every track: start, AI lap 2, elevation, all themes; `TRACKS=oval,palace_circuit` limits the run). Headless Chrome with software GL is slow: run one test at a time, use DOM `el.click()` not Playwright clicks, and dump the minimap canvas instead of full-page screenshots.
   Env overrides: `PW_CHROME=<chromium path>` when Google Chrome is not installed, `THREE_LOCAL=<unpacked three@0.160.0 package dir>` when the jsDelivr CDN is unreachable (`npm pack three@0.160.0`).
 - Touch layout (`#mobile-touch-layer` media query: coarse pointer or width <= 900px) has no pedals: `updatePlayer()` forces gas on, and holding
   DRIFT with no steering for `TOUCH_REVERSE_HOLD` frames brakes then reverses (`.reversing` on the DRIFT button) until released.
@@ -26,7 +26,7 @@ All kart game enhancements, bug fixes, and feature additions belong in this dire
 - **Adding a track** = one `TRACKS` entry + one `.theme-card[data-track="<id>"]` on the start screen +
   `I18N.<lang>.tracks.<id> = { name, desc }` for kr/us/mx. Everything else (road mesh, curbs, finish line,
   podium, minimap, theme props, lap/checkpoint thresholds) derives from the registry.
-- `numWaypoints`: keep waypoint spacing at ~6–7 units (length / count). `oval` = 100, `village_highway` = 220.
+- `numWaypoints`: keep waypoint spacing at ~6–7 units (length / count). `oval` = 100, `village_highway` = 220, `palace_circuit` = 230.
 - `getTrackPoint(t)` samples the curve by arc length (`getPointAt`) and clamps `y >= 0`.
   `rebuildWaypoints()` fills `waypoints[]` (same array object, do not reassign) and `wpSlope[]`, and
   auto-detects the steepest downhill run for the sidewalk (`currentTrack.sidewalk = { from, to }`).

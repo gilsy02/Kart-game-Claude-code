@@ -1190,6 +1190,11 @@
           <div class="theme-name">빌리지 고가의 질주</div>
           <div class="theme-desc">긴 고가도로 직선과 급내리막, 마지막 U턴</div>
         </div>
+        <div class="theme-card" data-track="palace_circuit">
+          <div class="theme-icon">🏯</div>
+          <div class="theme-name">조선 고궁 서킷</div>
+          <div class="theme-desc">헤어핀 2개와 성곽 고갯길, 연속 S커브의 기술 코스</div>
+        </div>
       </div>
     </div>
 
@@ -1295,7 +1300,8 @@
         selectTrack: '🏁 트랙을 선택하세요 🏁',
         tracks: {
           oval: { name: '기본 서킷', desc: '완만한 타원형 코스, 드리프트 연습에 딱' },
-          village_highway: { name: '빌리지 고가의 질주', desc: '긴 고가도로 직선과 급내리막, 마지막 U턴' }
+          village_highway: { name: '빌리지 고가의 질주', desc: '긴 고가도로 직선과 급내리막, 마지막 U턴' },
+          palace_circuit: { name: '조선 고궁 서킷', desc: '헤어핀 2개와 성곽 고갯길, 연속 S커브의 기술 코스' }
         },
         themes: {
           witch: {
@@ -1347,7 +1353,8 @@
         selectTrack: '🏁 Select Track 🏁',
         tracks: {
           oval: { name: 'Basic Circuit', desc: 'Gentle oval loop, perfect for drift practice' },
-          village_highway: { name: 'Village Highway Run', desc: 'Long overpass straight, steep downhill, final hairpin' }
+          village_highway: { name: 'Village Highway Run', desc: 'Long overpass straight, steep downhill, final hairpin' },
+          palace_circuit: { name: 'Palace Circuit', desc: 'Technical course: two hairpins, a fortress-wall hill and chained S-bends' }
         },
         themes: {
           witch: {
@@ -1399,7 +1406,8 @@
         selectTrack: '🏁 Selecciona la Pista 🏁',
         tracks: {
           oval: { name: 'Circuito Básico', desc: 'Óvalo suave, ideal para practicar derrapes' },
-          village_highway: { name: 'Carrera del Viaducto', desc: 'Larga recta elevada, bajada empinada y horquilla final' }
+          village_highway: { name: 'Carrera del Viaducto', desc: 'Larga recta elevada, bajada empinada y horquilla final' },
+          palace_circuit: { name: 'Circuito del Palacio', desc: 'Trazado técnico: dos horquillas, una cuesta sobre la muralla y eses encadenadas' }
         },
         themes: {
           witch: {
@@ -1512,6 +1520,39 @@
         defaultTheme: 'village',
         laps: 3,
         podium: [300, -100], // 루프 안쪽, 도로에서 떨어진 자리
+      },
+      palace_circuit: {
+        id: 'palace_circuit',
+        // 조선 고궁 서킷: 기술형 코스. 출발 직선 → 좌회전 → 성곽 고갯길(최고 8m) 오르막 → 넓은 헤어핀 → 내리막 S자
+        // → 짧은 직선 → 헤어핀 → 연속 S커브 → 마지막 좌회전 → 골인. 긴 직선이 없어 드리프트 기회가 많다.
+        controlPoints: [
+          [   0,    0,  0],   // P0  출발/골인선, +x 방향
+          [ 153,    0,  0],   // P1  출발 직선 끝
+          [ 216,  -22,  0],   // P2  1번 코너 (좌회전, 북쪽으로)
+          [ 243,  -81,  0],   // P3
+          [ 234, -144,  3],   // P4  성곽 고갯길 오르막 시작
+          [ 270, -198,  6],   // P5
+          [ 342, -216,  8],   // P6  고개 정상, 넓은 헤어핀 진입
+          [ 387, -171,  8],   // P7  헤어핀 (우회전 180°)
+          [ 378, -108,  6],   // P8  내리막 시작
+          [ 324,  -81,  3],   // P9  내리막 S자 (1)
+          [ 306,  -18,  0],   // P10 내리막 바닥, S자 (2)
+          [ 342,   36,  0],   // P11 짧은 직선
+          [ 378,   99,  0],   // P12 2번 헤어핀 진입
+          [ 342,  153,  0],   // P13 헤어핀 (우회전 180°)
+          [ 270,  162,  0],   // P14
+          [ 225,  117,  0],   // P15 헤어핀 탈출, 서쪽으로
+          [ 180,   81,  0],   // P16 연속 S커브 (1)
+          [ 117,  108,  0],   // P17 연속 S커브 (2)
+          [  54,  144,  0],   // P18 연속 S커브 (3)
+          [ -18,  117,  0],   // P19 마지막 코너 진입
+          [ -45,   54,  0],   // P20 마지막 좌회전
+          [ -27,    9,  0],   // P21 골인선을 향해 +x
+        ],
+        numWaypoints: 230,   // 길이 약 1,530 유닛 → 간격 약 6.6
+        defaultTheme: 'joseon',
+        laps: 3,
+        podium: [120, -60],  // 출발 직선 북쪽 마당, 도로에서 60 유닛 이상 떨어진 자리
       },
     };
     const OVAL_LENGTH = 705; // 기존 타원 둘레(유닛). 길가 소품 밀도 기준값
